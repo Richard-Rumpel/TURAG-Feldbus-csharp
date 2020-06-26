@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29806.167
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TURAG-Feldbus-csharp", "TURAG-Feldbus-csharp.csproj", "{B1F059D9-D2E5-40A7-A96F-D1C392A03086}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "..\Test\Test.csproj", "{63073D68-F309-4BE1-8ECC-01745754F32B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B1F059D9-D2E5-40A7-A96F-D1C392A03086} = {B1F059D9-D2E5-40A7-A96F-D1C392A03086}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test3", "..\Test3\Test3.csproj", "{8E33F978-8E08-4F64-84CE-69F825343B53}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B1F059D9-D2E5-40A7-A96F-D1C392A03086}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1F059D9-D2E5-40A7-A96F-D1C392A03086}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1F059D9-D2E5-40A7-A96F-D1C392A03086}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1F059D9-D2E5-40A7-A96F-D1C392A03086}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63073D68-F309-4BE1-8ECC-01745754F32B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63073D68-F309-4BE1-8ECC-01745754F32B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63073D68-F309-4BE1-8ECC-01745754F32B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63073D68-F309-4BE1-8ECC-01745754F32B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E33F978-8E08-4F64-84CE-69F825343B53}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E33F978-8E08-4F64-84CE-69F825343B53}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E33F978-8E08-4F64-84CE-69F825343B53}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E33F978-8E08-4F64-84CE-69F825343B53}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {702E516E-5961-481B-A350-9012BFA4545D}
+	EndGlobalSection
+EndGlobal
