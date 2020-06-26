@@ -5,15 +5,15 @@ namespace TURAG.Feldbus.Transport
 {
     /// <summary>
     /// This transport implementation deferrs the actual data exchange by providing
-    /// three pairs of request event and SetResult-function for transmit, transceive 
-    /// buffer clear. The user needs to register to each event and, within its invocation, 
+    /// three pairs of request event and SetResult-function for transmit, transceive
+    /// buffer clear. The user needs to register to each event and, within its invocation,
     /// execute the required transport mechanism and call the SetResult function to
     /// supply the result of the operation.
     /// 
-    /// This class is suitable to be used for integrating TURAG Feldbus device classes 
+    /// This class is suitable to be used for integrating TURAG Feldbus device classes
     /// with LabView.
     /// 
-    /// Async transport functions are currently not implemented. Consequently,  
+    /// Async transport functions are currently not implemented. Consequently,
     /// only synchronous function variants of the device classes can be used.
     /// </summary>
     public class EventTransport : TransportAbstraction

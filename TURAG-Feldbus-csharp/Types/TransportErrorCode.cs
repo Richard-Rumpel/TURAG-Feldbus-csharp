@@ -1,6 +1,6 @@
-﻿namespace TURAG.Feldbus.Transport
+﻿namespace TURAG.Feldbus.Types
 {
-    internal enum BusTransceiveResult
+    internal enum TransportErrorCode
     {
         Success,
         ChecksumError,

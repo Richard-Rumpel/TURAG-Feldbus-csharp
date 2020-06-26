@@ -4,8 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TURAG.Feldbus.Transport;
+using TURAG.Feldbus.Types;
 
-namespace TURAG.Feldbus
+namespace TURAG.Feldbus.Devices
 {
     public class Aseb : Device
     {
@@ -58,10 +59,10 @@ namespace TURAG.Feldbus
 
             if (syncSize > 2)
             {
-                Request request = new Request();
+                BusRequest request = new BusRequest();
                 request.Write((byte)0xFF);
 
-                TransceiveResult result = await TransceiveAsync(request, syncSize - 2);
+                BusTransceiveResult result = await TransceiveAsync(request, syncSize - 2);
 
                 if (!result.Success)
                 {
@@ -107,11 +108,11 @@ namespace TURAG.Feldbus
 
         public async Task<bool> SetDigitalOutputAsync(uint key, bool value)
         {
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             request.Write((byte)(key + 33));
             request.Write((byte)(value ? 1 : 0));
 
-            TransceiveResult result = await TransceiveAsync(request, 0);
+            BusTransceiveResult result = await TransceiveAsync(request, 0);
 
             if (!result.Success)
             {
@@ -189,14 +190,14 @@ namespace TURAG.Feldbus
 
         private async Task<int> ReceiveByteAsync(byte command, byte? secondByte = null)
         {
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             request.Write(command);
             if (secondByte != null)
             {
                 request.Write((byte)secondByte);
             }
 
-            TransceiveResult result = await TransceiveAsync(request, 1);
+            BusTransceiveResult result = await TransceiveAsync(request, 1);
 
             if (!result.Success)
             {
@@ -210,14 +211,14 @@ namespace TURAG.Feldbus
 
         private async Task<float> ReceiveFloatAsync(byte command, byte? secondByte = null)
         {
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             request.Write(command);
             if (secondByte != null)
             {
                 request.Write((byte)secondByte);
             }
 
-            TransceiveResult result = await TransceiveAsync(request, 4);
+            BusTransceiveResult result = await TransceiveAsync(request, 4);
 
             if (!result.Success)
             {
@@ -237,11 +238,11 @@ namespace TURAG.Feldbus
                 return null;
             }
 
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             request.Write((byte)0xF5);
             request.Write((byte)raw_key);
 
-            TransceiveResult result = await TransceiveAsync(request, commandNameLength);
+            BusTransceiveResult result = await TransceiveAsync(request, commandNameLength);
 
             if (!result.Success)
             {

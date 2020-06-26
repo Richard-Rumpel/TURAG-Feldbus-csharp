@@ -1,6 +1,7 @@
 ﻿//using Nito.AsyncEx;
 using System;
 using System.Threading.Tasks;
+using TURAG.Feldbus.Types;
 using TURAG.Feldbus.Util;
 
 namespace TURAG.Feldbus.Transport
@@ -52,7 +53,7 @@ namespace TURAG.Feldbus.Transport
         {
         }
 
-        internal Tuple<BusTransceiveResult, byte[]> Transceive(int address, byte[] transmitData, int requestedBytes)
+        internal Tuple<TransportErrorCode, byte[]> Transceive(int address, byte[] transmitData, int requestedBytes)
         {
             using (busLock.Lock())
             {
@@ -60,7 +61,7 @@ namespace TURAG.Feldbus.Transport
             }
         }
 
-        internal async Task<Tuple<BusTransceiveResult, byte[]>> TransceiveAsync(int address, byte[] transmitData, int requestedBytes)
+        internal async Task<Tuple<TransportErrorCode, byte[]>> TransceiveAsync(int address, byte[] transmitData, int requestedBytes)
         {
             using (await busLock.LockAsync())
             {
@@ -68,7 +69,7 @@ namespace TURAG.Feldbus.Transport
             }
         }
 
-        internal BusTransceiveResult Transmit(int address, byte[] transmitData)
+        internal TransportErrorCode Transmit(int address, byte[] transmitData)
         {
             using (busLock.Lock())
             {
@@ -76,7 +77,7 @@ namespace TURAG.Feldbus.Transport
             }
         }
 
-        internal async Task<BusTransceiveResult> TransmitAsync(int address, byte[] transmitData)
+        internal async Task<TransportErrorCode> TransmitAsync(int address, byte[] transmitData)
         {
             using (await busLock.LockAsync())
             {
@@ -86,7 +87,7 @@ namespace TURAG.Feldbus.Transport
 
 
 
-        private protected virtual async Task<Tuple<BusTransceiveResult, byte[]>> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
+        private protected virtual async Task<Tuple<TransportErrorCode, byte[]>> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
         {
             // clear buffer of any old data
             if (sync)
@@ -118,7 +119,7 @@ namespace TURAG.Feldbus.Transport
             TransmitCount += transmitBuffer.Length;
             if (!transceiveSuccess)
             {
-                return Tuple.Create(BusTransceiveResult.ReceptionError, new byte[0]);
+                return Tuple.Create(TransportErrorCode.ReceptionError, new byte[0]);
             }
             ReceiveCount += receiveBuffer.Length;
 
@@ -126,13 +127,13 @@ namespace TURAG.Feldbus.Transport
 
             if (!crcCorrect)
             {
-                return Tuple.Create(BusTransceiveResult.ChecksumError, new byte[0]);
+                return Tuple.Create(TransportErrorCode.ChecksumError, new byte[0]);
             }
 
-            return Tuple.Create(BusTransceiveResult.Success, receivedData);
+            return Tuple.Create(TransportErrorCode.Success, receivedData);
         }
 
-        private protected virtual async Task<BusTransceiveResult> TransmitAsyncInternal(int address, byte[] transmitData, bool sync)
+        private protected virtual async Task<TransportErrorCode> TransmitAsyncInternal(int address, byte[] transmitData, bool sync)
         {
             byte[] transmitBuffer = new byte[transmitData.Length + 2];
             Array.Copy(transmitData, 0, transmitBuffer, 1, transmitData.Length);
@@ -152,12 +153,12 @@ namespace TURAG.Feldbus.Transport
 
             if (!success)
             {
-                return BusTransceiveResult.TransmissionError;
+                return TransportErrorCode.TransmissionError;
             }
 
             TransmitCount += transmitBuffer.Length;
 
-            return BusTransceiveResult.Success;
+            return TransportErrorCode.Success;
         }
 
         /// <summary>

@@ -41,16 +41,23 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Aseb.cs" />
+    <Compile Include="Devices\Aseb.cs" />
     <Compile Include="Transport\MemoryTransport.cs" />
     <Compile Include="Transport\TransportAbstraction.cs" />
-    <Compile Include="Transport\BusTransceiveResult.cs" />
+    <Compile Include="Types\BusBroadcast.cs" />
+    <Compile Include="Types\BusRequest.cs" />
+    <Compile Include="Types\BusResponse.cs" />
+    <Compile Include="Types\BusTransceiveResult.cs" />
+    <Compile Include="Types\TransportErrorCode.cs" />
     <Compile Include="Transport\EventTransport.cs" />
     <Compile Include="Transport\SerialPortTransport.cs" />
     <Compile Include="Transport\TransportAbstractionExt.cs" />
+    <Compile Include="Types\DeviceInfo.cs" />
+    <Compile Include="Types\MasterStatistics.cs" />
+    <Compile Include="Types\SlaveStatistics.cs" />
     <Compile Include="Util\AsyncLock.cs" />
     <Compile Include="Util\Crc.cs" />
-    <Compile Include="Device.cs" />
+    <Compile Include="Devices\Device.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -1,157 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using TURAG.Feldbus.Transport;
+using TURAG.Feldbus.Types;
 
-namespace TURAG.Feldbus
+namespace TURAG.Feldbus.Devices
 {
     public class Device
     {
-        public class Request : BinaryWriter
-        {
-            public Request() : base(new MemoryStream())
-            {
-            }
-
-            public byte[] GetByteArray()
-            {
-                MemoryStream stream = (MemoryStream)BaseStream;
-                byte[] data = new byte[stream.Length];
-                Array.Copy(stream.GetBuffer(), data, stream.Length);
-                return data;
-            }
-        }
-
-        public class Broadcast : Request
-        {
-        }
-
-        public class Response : BinaryReader
-        {
-            public Response(int size = 0) : base(new MemoryStream(size))
-            {
-
-            }
-
-            public long Capacity { get => ((MemoryStream)BaseStream).Capacity; }
-
-            public void Fill(byte[] data)
-            {
-                ((MemoryStream)BaseStream).Write(data, 0, data.Length);
-                ((MemoryStream)BaseStream).Seek(0, SeekOrigin.Begin);
-            }
-        }
-
-        public class TransceiveResult
-        {
-            public TransceiveResult(bool success, Response response)
-            {
-                this.success = success;
-                this.response = response;
-            }
-
-            public bool Success => success;
-            public Response Response => response;
-
-            readonly bool success;
-            readonly Response response;
-        }
-
-        public class DeviceInfo
-        {
-            public DeviceInfo(Response response)
-            {
-                DeviceProtocolId = response.ReadByte();
-                DeviceTypeId = response.ReadByte();
-                int dummy = response.ReadByte();
-                CrcType = dummy & 0x07;
-                StatisticsAvailable = (dummy & 0x80) != 0 ? true : false;
-                BufferSize = response.ReadUInt16();
-                response.ReadUInt16(); // reserved bytes
-                NameLength = response.ReadByte();
-                Name = "???";
-                VersioninfoLength = response.ReadByte();
-                VersionInfo = "???";
-                UptimeFrequency = response.ReadUInt16();
-            }
-
-            public DeviceInfo(DeviceInfo info, string name, string versionInfo)
-            {
-                UptimeFrequency = info.UptimeFrequency;
-                BufferSize = info.BufferSize;
-                DeviceProtocolId = info.DeviceProtocolId;
-                CrcType = info.CrcType;
-                NameLength = info.NameLength;
-                Name = name;
-                VersioninfoLength = info.VersioninfoLength;
-                VersionInfo = versionInfo;
-                StatisticsAvailable = info.StatisticsAvailable;
-            }
-
-            public int UptimeFrequency { get; }
-
-            public bool UptimeAvailable => UptimeFrequency != 0;
-
-            public int BufferSize { get; }
-
-            public int DeviceProtocolId { get; }
-
-            public int DeviceTypeId { get; }
-
-            public int CrcType { get; }
-
-            public int NameLength { get; }
-
-            public string Name { get; }
-
-            public int VersioninfoLength { get; }
-
-            public string VersionInfo { get; }
-
-            public bool StatisticsAvailable { get; }
-        }
-
-        public class SlaveStatistics
-        {
-            public SlaveStatistics(UInt32 correct, UInt32 overflow, UInt32 lost, UInt32 chksum_error)
-            {
-                NoError = correct;
-                BufferOverflow = overflow;
-                LostPackets = lost;
-                ChecksumError = chksum_error;
-            }
-
-            public UInt32 NoError { get; }
-            public UInt32 BufferOverflow { get; }
-            public UInt32 LostPackets { get; }
-            public UInt32 ChecksumError { get; }
-        }
-
-        public class MasterStatistics
-        {
-            public MasterStatistics (Device device)
-            {
-                this.device = device;
-            }
-
-            public UInt32 ChecksumErrors => device.checksumErrors;
-            public UInt32 NoAnswer => device.noAnswer;
-            public UInt32 MissingData => device.missingData;
-            public UInt32 TransmitErrors => device.transmitErrors;
-            public UInt32 NoErrors => device.successfulTransmissions;
-
-            readonly Device device;
-        }
-
-
         public Device(int address, TransportAbstraction busAbstraction)
         {
             this.Address = address;
             this.BusAbstraction = busAbstraction;
             this.Info = null;
-            this.Statistics = new MasterStatistics(this);
         }
 
         public TransportAbstraction BusAbstraction { get; set; }
@@ -168,7 +30,7 @@ namespace TURAG.Feldbus
             {
                 if (Info == null)
                 {
-                    return "???";
+                    return "uninitialized";
                 }
                 else
                 {
@@ -177,7 +39,13 @@ namespace TURAG.Feldbus
             }
         }
 
-        public MasterStatistics Statistics { get; }
+        public MasterStatistics Statistics
+        {
+            get
+            {
+                return new MasterStatistics(checksumErrors, noAnswer, missingData, transmitErrors, successfulTransmissions);
+            }
+        }
 
         /// <summary>
         /// Device information. Call InitializeAsync() or GetDeviceInfoAsync() before usage:
@@ -221,12 +89,12 @@ namespace TURAG.Feldbus
 
         public async Task<bool> SendPingAsync()
         {
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             return (await TransceiveAsync(request, 0)).Success;
         }
         public bool SendPing()
         {
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             return Transceive(request, 0).Success;
         }
 
@@ -239,10 +107,10 @@ namespace TURAG.Feldbus
         {
             if (Info == null)
             {
-                Request request = new Request();
+                BusRequest request = new BusRequest();
                 request.Write((byte)0);  // device info command
 
-                TransceiveResult result = await TransceiveAsync(request, 11);
+                BusTransceiveResult result = await TransceiveAsync(request, 11);
 
                 if (!result.Success)
                 {
@@ -265,11 +133,11 @@ namespace TURAG.Feldbus
                 return null;
             }
 
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x07);
 
-            TransceiveResult result = await TransceiveAsync(request, 16);
+            BusTransceiveResult result = await TransceiveAsync(request, 16);
 
             if (!result.Success)
             {
@@ -295,11 +163,11 @@ namespace TURAG.Feldbus
                 return Double.NaN;
             }
 
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x01);
 
-            TransceiveResult result = await TransceiveAsync(request, 4);
+            BusTransceiveResult result = await TransceiveAsync(request, 4);
 
             if (!result.Success)
             {
@@ -313,11 +181,11 @@ namespace TURAG.Feldbus
 
         private async Task<string> ReceiveStringAsync(byte command, int stringLength)
         {
-            Request request = new Request();
+            BusRequest request = new BusRequest();
             request.Write((byte)0);
             request.Write(command);
 
-            TransceiveResult result = await TransceiveAsync(request, stringLength);
+            BusTransceiveResult result = await TransceiveAsync(request, stringLength);
 
             if (!result.Success)
             {
@@ -358,22 +226,22 @@ namespace TURAG.Feldbus
         }
 
 
-        protected TransceiveResult Transceive(Request request, int responseSize = 0)
+        protected BusTransceiveResult Transceive(BusRequest request, int responseSize = 0)
         {
             return TransceiveAsyncInternal(request, responseSize, sync: true).GetAwaiter().GetResult();
         }
-        protected Task<TransceiveResult> TransceiveAsync(Request request, int responseSize = 0)
+        protected Task<BusTransceiveResult> TransceiveAsync(BusRequest request, int responseSize = 0)
         {
             return TransceiveAsyncInternal(request, responseSize, sync: false);
         }
-        private async Task<TransceiveResult> TransceiveAsyncInternal(Request request, int responseSize, bool sync)
+        private async Task<BusTransceiveResult> TransceiveAsyncInternal(BusRequest request, int responseSize, bool sync)
         {
             int attempts = 3;
-            Response response = new Response(responseSize);
+            BusResponse response = new BusResponse(responseSize);
 
             while (attempts > 0)
             {
-                Tuple<BusTransceiveResult, byte[]> result;
+                Tuple<TransportErrorCode, byte[]> result;
                 if (sync)
                 {
                     result = BusAbstraction.Transceive(Address, request.GetByteArray(), responseSize);
@@ -383,21 +251,21 @@ namespace TURAG.Feldbus
                     result = await BusAbstraction.TransceiveAsync(Address, request.GetByteArray(), responseSize);
                 }
 
-                BusTransceiveResult transceiveStatus = result.Item1;
+                TransportErrorCode transceiveStatus = result.Item1;
                 byte[] receiveBuffer = result.Item2;
 
                 switch (transceiveStatus)
                 {
-                    case BusTransceiveResult.Success:
+                    case TransportErrorCode.Success:
                         response.Fill(receiveBuffer);
                         ++successfulTransmissions;
-                        return new TransceiveResult(true, response);
+                        return new BusTransceiveResult(true, response);
 
-                    case BusTransceiveResult.ChecksumError:
+                    case TransportErrorCode.ChecksumError:
                         ++checksumErrors;
                         break;
 
-                    case BusTransceiveResult.ReceptionError:
+                    case TransportErrorCode.ReceptionError:
                         if (receiveBuffer.Length == 0)
                         {
                             ++noAnswer;
@@ -408,7 +276,7 @@ namespace TURAG.Feldbus
                         }
                         break;
 
-                    case BusTransceiveResult.TransmissionError:
+                    case TransportErrorCode.TransmissionError:
                         ++transmitErrors;
                         break;
                 }
@@ -417,33 +285,33 @@ namespace TURAG.Feldbus
             }
 
             //L.C(this).Debug("!!!!!!!!!!! Transceive 3 attempts failed!");
-            return new TransceiveResult(false, response);
+            return new BusTransceiveResult(false, response);
         }
 
 
-        protected bool SendBroadcast(Broadcast broadcast)
+        protected bool SendBroadcast(BusBroadcast broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: true).GetAwaiter().GetResult();
         }
-        protected Task<bool> SendBroadcastAsync(Broadcast broadcast)
+        protected Task<bool> SendBroadcastAsync(BusBroadcast broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: false);
         }
-        private async Task<bool> SendBroadcastAsyncInternal(Broadcast broadcast, bool sync)
+        private async Task<bool> SendBroadcastAsyncInternal(BusBroadcast broadcast, bool sync)
         {
             int attempts = 3;
 
             while (attempts > 0)
             {
-                BusTransceiveResult result = await BusAbstraction.TransmitAsync(Address, broadcast.GetByteArray());
+                TransportErrorCode result = await BusAbstraction.TransmitAsync(Address, broadcast.GetByteArray());
 
                 switch (result)
                 {
-                    case BusTransceiveResult.Success:
+                    case TransportErrorCode.Success:
                         ++successfulTransmissions;
                         return true;
 
-                    case BusTransceiveResult.TransmissionError:
+                    case TransportErrorCode.TransmissionError:
                         ++transmitErrors;
                         break;
                 }
