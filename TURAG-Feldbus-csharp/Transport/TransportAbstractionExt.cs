@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
-using TURAG.Feldbus.Util;
+using TURAG.Feldbus.Types;
 
 namespace TURAG.Feldbus.Transport
 {
@@ -38,7 +38,7 @@ namespace TURAG.Feldbus.Transport
         public TransmissionMode Mode { get; set; }
 
 
-        private protected override async Task<Tuple<BusTransceiveResult, byte[]>> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
+        private protected override async Task<Tuple<TransportErrorCode, byte[]>> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
         {
             switch (Mode)
             {
@@ -61,13 +61,13 @@ namespace TURAG.Feldbus.Transport
 
                         if (!success)
                         {
-                            return Tuple.Create(BusTransceiveResult.TransmissionError, new byte[0]);
+                            return Tuple.Create(TransportErrorCode.TransmissionError, new byte[0]);
                         }
 
                         TransmitCount += transmitBuffer.Length;
                         ReceiveCount += requestedBytes + 2;
 
-                        return Tuple.Create(BusTransceiveResult.Success, new byte[requestedBytes + 2]);
+                        return Tuple.Create(TransportErrorCode.Success, new byte[requestedBytes + 2]);
                     }
 
                 case TransmissionMode.ReceiveOnly:
@@ -89,7 +89,7 @@ namespace TURAG.Feldbus.Transport
 
                         if (!receiptionSuccessful)
                         {
-                            return Tuple.Create(BusTransceiveResult.ReceptionError, new byte[0]);
+                            return Tuple.Create(TransportErrorCode.ReceptionError, new byte[0]);
                         }
 
                         ReceiveCount += receiveBuffer.Length;
@@ -98,20 +98,20 @@ namespace TURAG.Feldbus.Transport
 
                         if (!crcCorrect)
                         {
-                            return Tuple.Create(BusTransceiveResult.ChecksumError, new byte[0]);
+                            return Tuple.Create(TransportErrorCode.ChecksumError, new byte[0]);
                         }
 
-                        return Tuple.Create(BusTransceiveResult.Success, receivedData);
+                        return Tuple.Create(TransportErrorCode.Success, receivedData);
                     }
             }
-            return Tuple.Create(BusTransceiveResult.TransmissionError, new byte[0]);
+            return Tuple.Create(TransportErrorCode.TransmissionError, new byte[0]);
         }
 
-        private protected override Task<BusTransceiveResult> TransmitAsyncInternal(int address, byte[] transmitData, bool sync)
+        private protected override Task<TransportErrorCode> TransmitAsyncInternal(int address, byte[] transmitData, bool sync)
         {
             if (Mode == TransmissionMode.ReceiveOnly)
             {
-                return Task.FromResult(BusTransceiveResult.Success);
+                return Task.FromResult(TransportErrorCode.Success);
             }
             else
             {

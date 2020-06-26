@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using TURAG.Feldbus.Transport;
 using TURAG.Feldbus.Types;
@@ -14,33 +11,46 @@ namespace TURAG.Feldbus.Devices
         {
         }
 
-        public override async Task<bool> InitializeAsync()
+        public override bool Initialize()
         {
-            await base.InitializeAsync();
+            return InitializeAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        public override Task<bool> InitializeAsync()
+        {
+            return InitializeAsyncInternal(sync: false);
+        }
+
+        private async Task<bool> InitializeAsyncInternal(bool sync)
+        {
+            if ((sync ? base.Initialize() : await base.InitializeAsync()) == false)
+            {
+                return false;
+            }
 
             if (!initialized)
             {
-                syncSize = await ReceiveSyncSizeAsync();
-                numberOfDigitalInputs = await ReceiveDigitalInputSizeAsync();
-                numberOfDigitalOutputs = await ReceiveDigitalOutputSizeAsync();
-                numberOfAnalogInputs = await ReceiveAnalogInputSizeAsync();
+                syncSize = sync ? ReceiveSyncSize() : await ReceiveSyncSizeAsync();
+                numberOfDigitalInputs = sync ? ReceiveDigitalInputSize() : await ReceiveDigitalInputSizeAsync();
+                numberOfDigitalOutputs = sync ? ReceiveDigitalOutputSize() : await ReceiveDigitalOutputSizeAsync();
+                numberOfAnalogInputs = sync ? ReceiveAnalogInputSize() : await ReceiveAnalogInputSizeAsync();
 
                 if (syncSize == -1 || numberOfDigitalInputs == -1 || numberOfDigitalOutputs == -1 || numberOfAnalogInputs == -1)
                 {
                     return false;
                 }
 
-                if (!await InitCommandNamesAsync())
+                if ((sync ? InitCommandNames() : await InitCommandNamesAsync()) == false)
                 {
                     return false;
                 }
 
-                if (!await InitAnalogInputsAsync())
+                if ((sync ? InitAnalogInputs() : await InitAnalogInputsAsync()) == false)
                 {
                     return false;
                 }
 
-                if (!await InitDigitalOutputBufferAsync())
+                if ((sync ? InitDigitalOutputBuffer() : await InitDigitalOutputBufferAsync()) == false)
                 {
                     return false;
                 }
@@ -50,7 +60,21 @@ namespace TURAG.Feldbus.Devices
             return true;
         }
 
-        public async Task<bool> Sync()
+        /// <summary>
+        /// Synchronizes the inputs of the device.
+        /// </summary>
+        /// <returns>True on success, false otherwise.</returns>
+        public bool Sync()
+        {
+            return SyncAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        public Task<bool> SyncAsync()
+        {
+            return SyncAsyncInternal(sync: false);
+        }
+
+        private async Task<bool> SyncAsyncInternal(bool sync)
         {
             if (!initialized)
             {
@@ -62,7 +86,7 @@ namespace TURAG.Feldbus.Devices
                 BusRequest request = new BusRequest();
                 request.Write((byte)0xFF);
 
-                BusTransceiveResult result = await TransceiveAsync(request, syncSize - 2);
+                BusTransceiveResult result = sync ? Transceive(request, syncSize - 2) : await TransceiveAsync(request, syncSize - 2);
 
                 if (!result.Success)
                 {
@@ -106,13 +130,29 @@ namespace TURAG.Feldbus.Devices
             return (digitalOutputValue & (1 << (int)key)) != 0;
         }
 
-        public async Task<bool> SetDigitalOutputAsync(uint key, bool value)
+        /// <summary>
+        /// Sets the specified digital output to the given state.
+        /// </summary>
+        /// <param name="key">Index of the output.</param>
+        /// <param name="value">value to set.</param>
+        /// <returns>True on success, false otherwise.</returns>
+        public bool SetDigitalOutput(uint key, bool value)
+        {
+            return SetDigitalOutputAsyncInternal(key, value, sync: true).GetAwaiter().GetResult();
+        }
+
+        public Task<bool> SetDigitalOutputAsync(uint key, bool value)
+        {
+            return SetDigitalOutputAsyncInternal(key, value, sync: false);
+        }
+
+        private async Task<bool> SetDigitalOutputAsyncInternal(uint key, bool value, bool sync)
         {
             BusRequest request = new BusRequest();
             request.Write((byte)(key + 33));
             request.Write((byte)(value ? 1 : 0));
 
-            BusTransceiveResult result = await TransceiveAsync(request, 0);
+            BusTransceiveResult result = sync ? Transceive(request, 0) : await TransceiveAsync(request, 0);
 
             if (!result.Success)
             {
@@ -168,27 +208,53 @@ namespace TURAG.Feldbus.Devices
             get => initialized;
         }
 
+        private int ReceiveSyncSize()
+        {
+            return ReceiveByte((byte)0xF4);
+        }
         private Task<int> ReceiveSyncSizeAsync()
         {
             return ReceiveByteAsync((byte)0xF4);
         }
 
+        private int ReceiveDigitalInputSize()
+        {
+            return ReceiveByte((byte)0xF7);
+        }
         private Task<int> ReceiveDigitalInputSizeAsync()
         {
             return ReceiveByteAsync((byte)0xF7);
         }
 
+        private int ReceiveDigitalOutputSize()
+        {
+            return ReceiveByte((byte)0xF8);
+        }
         private Task<int> ReceiveDigitalOutputSizeAsync()
         {
             return ReceiveByteAsync((byte)0xF8);
         }
 
+        private int ReceiveAnalogInputSize()
+        {
+            return ReceiveByte((byte)0xF9);
+        }
         private Task<int> ReceiveAnalogInputSizeAsync()
         {
             return ReceiveByteAsync((byte)0xF9);
         }
 
-        private async Task<int> ReceiveByteAsync(byte command, byte? secondByte = null)
+        private int ReceiveByte(byte command, byte? secondByte = null)
+        {
+            return ReceiveByteAsyncInternal(command, secondByte, sync: true).GetAwaiter().GetResult();
+        }
+
+        private Task<int> ReceiveByteAsync(byte command, byte? secondByte = null)
+        {
+            return ReceiveByteAsyncInternal(command, secondByte, sync: false);
+        }
+
+        private async Task<int> ReceiveByteAsyncInternal(byte command, byte? secondByte, bool sync)
         {
             BusRequest request = new BusRequest();
             request.Write(command);
@@ -197,7 +263,7 @@ namespace TURAG.Feldbus.Devices
                 request.Write((byte)secondByte);
             }
 
-            BusTransceiveResult result = await TransceiveAsync(request, 1);
+            BusTransceiveResult result = sync ? Transceive(request, 1) : await TransceiveAsync(request, 1);
 
             if (!result.Success)
             {
@@ -209,7 +275,17 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        private async Task<float> ReceiveFloatAsync(byte command, byte? secondByte = null)
+        private float ReceiveFloat(byte command, byte? secondByte = null)
+        {
+            return ReceiveFloatAsyncInternal(command, secondByte, sync: true).GetAwaiter().GetResult();
+        }
+
+        private Task<float> ReceiveFloatAsync(byte command, byte? secondByte = null)
+        {
+            return ReceiveFloatAsyncInternal(command, secondByte, sync: false);
+        }
+
+        private async Task<float> ReceiveFloatAsyncInternal(byte command, byte? secondByte, bool sync)
         {
             BusRequest request = new BusRequest();
             request.Write(command);
@@ -218,7 +294,7 @@ namespace TURAG.Feldbus.Devices
                 request.Write((byte)secondByte);
             }
 
-            BusTransceiveResult result = await TransceiveAsync(request, 4);
+            BusTransceiveResult result = sync ? Transceive(request, 4) : await TransceiveAsync(request, 4);
 
             if (!result.Success)
             {
@@ -230,9 +306,19 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        private async Task<string> ReceiveCommandNameAsync(uint raw_key)
+        private string ReceiveCommandName(uint raw_key)
         {
-            int commandNameLength = await ReceiveByteAsync((byte)0xF6, (byte)raw_key);
+            return ReceiveCommandNameAsyncInternal(raw_key, sync: true).GetAwaiter().GetResult();
+        }
+
+        private Task<string> ReceiveCommandNameAsync(uint raw_key)
+        {
+            return ReceiveCommandNameAsyncInternal(raw_key, sync: false);
+        }
+
+        private async Task<string> ReceiveCommandNameAsyncInternal(uint raw_key, bool sync)
+        {
+            int commandNameLength = sync ? ReceiveByte((byte)0xF6, (byte)raw_key) : await ReceiveByteAsync((byte)0xF6, (byte)raw_key);
             if (commandNameLength == -1)
             {
                 return null;
@@ -242,7 +328,7 @@ namespace TURAG.Feldbus.Devices
             request.Write((byte)0xF5);
             request.Write((byte)raw_key);
 
-            BusTransceiveResult result = await TransceiveAsync(request, commandNameLength);
+            BusTransceiveResult result = sync ? Transceive(request, commandNameLength) : await TransceiveAsync(request, commandNameLength);
 
             if (!result.Success)
             {
@@ -258,7 +344,17 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        private async Task<bool> InitDigitalOutputBufferAsync()
+        private bool InitDigitalOutputBuffer()
+        {
+            return InitDigitalOutputBufferAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        private Task<bool> InitDigitalOutputBufferAsync()
+        {
+            return InitDigitalOutputBufferAsyncInternal(sync: false);
+        }
+
+        private async Task<bool> InitDigitalOutputBufferAsyncInternal(bool sync)
         {
             if (numberOfDigitalOutputs == -1)
             {
@@ -269,7 +365,7 @@ namespace TURAG.Feldbus.Devices
 
             for (int i = 0; i < numberOfDigitalOutputs; ++i)
             {
-                int outState = await ReceiveByteAsync((byte)(i + 33));
+                int outState = sync ? ReceiveByte((byte)(i + 33)) : await ReceiveByteAsync((byte)(i + 33));
                 if (outState == -1)
                 {
                     return false;
@@ -284,7 +380,17 @@ namespace TURAG.Feldbus.Devices
             return true;
         }
 
-        private async Task<bool> InitAnalogInputsAsync()
+        private bool InitAnalogInputs()
+        {
+            return InitAnalogInputsAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        private Task<bool> InitAnalogInputsAsync()
+        {
+            return InitAnalogInputsAsyncInternal(sync: false);
+        }
+
+        private async Task<bool> InitAnalogInputsAsyncInternal(bool sync)
         {
             if (numberOfAnalogInputs == -1)
             {
@@ -296,7 +402,7 @@ namespace TURAG.Feldbus.Devices
 
             for (int i = 0; i < numberOfAnalogInputs; ++i)
             {
-                float factor = await ReceiveFloatAsync((byte)0xFB, (byte)(i + 17));
+                float factor = sync ? ReceiveFloat((byte)0xFB, (byte)(i + 17)) : await ReceiveFloatAsync((byte)0xFB, (byte)(i + 17));
                 if (factor == float.NaN)
                 {
                     return false;
@@ -309,7 +415,17 @@ namespace TURAG.Feldbus.Devices
             return true;
         }
 
-        private async Task<bool> InitCommandNamesAsync()
+        private bool InitCommandNames()
+        {
+            return InitCommandNamesAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        private Task<bool> InitCommandNamesAsync()
+        {
+            return InitCommandNamesAsyncInternal(sync: false);
+        }
+
+        private async Task<bool> InitCommandNamesAsyncInternal(bool sync)
         {
             if (numberOfDigitalInputs == -1 || numberOfDigitalOutputs == -1 || numberOfAnalogInputs == -1)
             {
@@ -319,7 +435,7 @@ namespace TURAG.Feldbus.Devices
             digitalInputNames = new string[numberOfDigitalInputs];
             for (int i = 0; i < numberOfDigitalInputs; ++i)
             {
-                string commandName = await ReceiveCommandNameAsync((uint)(i + 1));
+                string commandName = sync ? ReceiveCommandName((uint)(i + 1)) : await ReceiveCommandNameAsync((uint)(i + 1));
                 if (commandName == null)
                 {
                     return false;
@@ -333,7 +449,7 @@ namespace TURAG.Feldbus.Devices
             digitalOutputNames = new string[numberOfDigitalOutputs];
             for (int i = 0; i < numberOfDigitalOutputs; ++i)
             {
-                string commandName = await ReceiveCommandNameAsync((uint)(i + 33));
+                string commandName = sync ? ReceiveCommandName((uint)(i + 33)) : await ReceiveCommandNameAsync((uint)(i + 33));
                 if (commandName == null)
                 {
                     return false;
@@ -347,7 +463,7 @@ namespace TURAG.Feldbus.Devices
             analogInputNames = new string[numberOfAnalogInputs];
             for (int i = 0; i < numberOfAnalogInputs; ++i)
             {
-                string commandName = await ReceiveCommandNameAsync((uint)(i + 17));
+                string commandName = sync ? ReceiveCommandName((uint)(i + 17)) : await ReceiveCommandNameAsync((uint)(i + 17));
                 if (commandName == null)
                 {
                     return false;

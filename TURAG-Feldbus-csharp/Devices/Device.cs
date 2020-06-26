@@ -21,7 +21,7 @@ namespace TURAG.Feldbus.Devices
         public int Address { get; }
 
         /// <summary>
-        /// Name of the device. A call to Call InitializeAsync() is required 
+        /// Name of the device. A call to Initialize() is required 
         /// before usage, but a valid string will always be returned nonetheless.
         /// </summary>
         public string Name
@@ -48,7 +48,7 @@ namespace TURAG.Feldbus.Devices
         }
 
         /// <summary>
-        /// Device information. Call InitializeAsync() or GetDeviceInfoAsync() before usage:
+        /// Device information. Call Initialize() or GetDeviceInfo() before usage:
         /// Returns null if neither of those functions were called or their execution failed.
         /// </summary>
         public DeviceInfo Info { get; private set; }
@@ -58,22 +58,32 @@ namespace TURAG.Feldbus.Devices
         /// classes have to call the base implementation.
         /// </summary>
         /// <returns>True on success, false otherwise.</returns>
-        public virtual async Task<bool> InitializeAsync()
+        public virtual bool Initialize()
+        {
+            return InitializeAsyncInternal(sync: false).GetAwaiter().GetResult();
+        }
+
+        public virtual Task<bool> InitializeAsync()
+        {
+            return InitializeAsyncInternal(sync: false);
+        }
+
+        private async Task<bool> InitializeAsyncInternal(bool sync)
         {
             if (!fullyInitialized)
             {
-                if (await GetDeviceInfoAsync() == null)
+                if ((sync ? GetDeviceInfo() : await GetDeviceInfoAsync()) == null)
                 {
                     return false;
                 }
 
-                string deviceName = await ReceiveStringAsync(0x00, Info.NameLength);
+                string deviceName = sync ? ReceiveString(0x00, Info.NameLength) : await ReceiveStringAsync(0x00, Info.NameLength);
                 if (deviceName == null)
                 {
                     return false;
                 }
 
-                string versionInfo = await ReceiveStringAsync(0x02, Info.VersioninfoLength);
+                string versionInfo = sync ? ReceiveString(0x02, Info.VersioninfoLength) : await ReceiveStringAsync(0x02, Info.VersioninfoLength);
                 if (versionInfo == null)
                 {
                     return false;
@@ -86,16 +96,20 @@ namespace TURAG.Feldbus.Devices
             return true;
         }
 
+        /// <summary>
+        /// Checks device availability by sending a ping packet.
+        /// </summary>
+        /// <returns>True if the device responded, false otherwise.</returns>
+        public bool SendPing()
+        {
+            BusRequest request = new BusRequest();
+            return Transceive(request, 0).Success;
+        }
 
         public async Task<bool> SendPingAsync()
         {
             BusRequest request = new BusRequest();
             return (await TransceiveAsync(request, 0)).Success;
-        }
-        public bool SendPing()
-        {
-            BusRequest request = new BusRequest();
-            return Transceive(request, 0).Success;
         }
 
         /// <summary>
@@ -103,14 +117,25 @@ namespace TURAG.Feldbus.Devices
         /// if only protocol and device IDs are required to save a complete initialization.
         /// </summary>
         /// <returns>The device info on success, null otherwise.</returns>
-        public async Task<DeviceInfo> GetDeviceInfoAsync()
+        public DeviceInfo GetDeviceInfo()
+        {
+            return GetDeviceInfoAsync(sync: true).GetAwaiter().GetResult();
+        }
+
+        public Task<DeviceInfo> GetDeviceInfoAsync()
+        {
+            return GetDeviceInfoAsync(sync: false);
+        }
+
+
+        private async Task<DeviceInfo> GetDeviceInfoAsync(bool sync)
         {
             if (Info == null)
             {
                 BusRequest request = new BusRequest();
                 request.Write((byte)0);  // device info command
 
-                BusTransceiveResult result = await TransceiveAsync(request, 11);
+                BusTransceiveResult result = sync ? Transceive(request, 11) : await TransceiveAsync(request, 11);
 
                 if (!result.Success)
                 {
@@ -125,9 +150,24 @@ namespace TURAG.Feldbus.Devices
             return Info;
         }
 
-        public async Task<SlaveStatistics> ReceiveSlaveStatisticsAsync()
+        /// <summary>
+        /// Reads the the package statistics of the slave device.
+        /// </summary>
+        /// <returns>Instance holding the statistics on success,
+        /// null otherwise.</returns>
+        public SlaveStatistics ReceiveSlaveStatistics()
         {
-            DeviceInfo info = await GetDeviceInfoAsync();
+            return ReceiveSlaveStatisticsAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        public Task<SlaveStatistics> ReceiveSlaveStatisticsAsync()
+        {
+            return ReceiveSlaveStatisticsAsyncInternal(sync: false);
+        }
+
+        private async Task<SlaveStatistics> ReceiveSlaveStatisticsAsyncInternal(bool sync)
+        {
+            DeviceInfo info = sync ? GetDeviceInfo() : await GetDeviceInfoAsync();
             if (!info.StatisticsAvailable)
             {
                 return null;
@@ -137,7 +177,7 @@ namespace TURAG.Feldbus.Devices
             request.Write((byte)0x00);
             request.Write((byte)0x07);
 
-            BusTransceiveResult result = await TransceiveAsync(request, 16);
+            BusTransceiveResult result = sync ? Transceive(request, 16) : await TransceiveAsync(request, 16);
 
             if (!result.Success)
             {
@@ -155,9 +195,23 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        public async Task<double> ReceiveUptimeAsync()
+        /// <summary>
+        /// Reads the time since power-up from the device.
+        /// </summary>
+        /// <returns>Uptime of the device in seconds.</returns>
+        public double ReceiveUptime()
         {
-            DeviceInfo info = await GetDeviceInfoAsync();
+            return ReceiveUptimeAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        public Task<double> ReceiveUptimeAsync()
+        {
+            return ReceiveUptimeAsyncInternal(sync: false);
+        }
+
+        private async Task<double> ReceiveUptimeAsyncInternal(bool sync)
+        {
+            DeviceInfo info = sync ? GetDeviceInfo() : await GetDeviceInfoAsync();
             if (info.UptimeFrequency == 0.0)
             {
                 return Double.NaN;
@@ -167,7 +221,7 @@ namespace TURAG.Feldbus.Devices
             request.Write((byte)0x00);
             request.Write((byte)0x01);
 
-            BusTransceiveResult result = await TransceiveAsync(request, 4);
+            BusTransceiveResult result = sync ? Transceive(request, 4) : await TransceiveAsync(request, 4);
 
             if (!result.Success)
             {
@@ -179,13 +233,23 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        private async Task<string> ReceiveStringAsync(byte command, int stringLength)
+        private Task<string> ReceiveStringAsync(byte command, int stringLength)
+        {
+            return ReceiveStringAsyncInternal(command, stringLength, sync: false);
+        }
+
+        private string ReceiveString(byte command, int stringLength)
+        {
+            return ReceiveStringAsyncInternal(command, stringLength, sync: true).GetAwaiter().GetResult();
+        }
+
+        private async Task<string> ReceiveStringAsyncInternal(byte command, int stringLength, bool sync)
         {
             BusRequest request = new BusRequest();
             request.Write((byte)0);
             request.Write(command);
 
-            BusTransceiveResult result = await TransceiveAsync(request, stringLength);
+            BusTransceiveResult result = sync ? Transceive(request, stringLength) : await TransceiveAsync(request, stringLength);
 
             if (!result.Success)
             {

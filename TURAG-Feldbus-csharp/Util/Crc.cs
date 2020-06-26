@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace TURAG.Feldbus.Util
+﻿namespace TURAG.Feldbus.Util
 {
     /// <summary>
     /// CRC8 I-Code implementation. Ported from C code
@@ -33,7 +27,7 @@ namespace TURAG.Feldbus.Util
             byte crc = 0xfd;
             int index = offset;
 
-            while (index < length+offset)
+            while (index < length + offset)
             {
                 crc = table[crc ^ data[index]];
                 index++;
