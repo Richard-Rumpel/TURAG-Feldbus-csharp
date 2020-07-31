@@ -52,7 +52,7 @@ namespace TURAG.Feldbus.Transport
         {
         }
 
-        internal Tuple<TransportErrorCode, byte[]> Transceive(int address, byte[] transmitData, int requestedBytes)
+        internal (ErrorCode, byte[]) Transceive(int address, byte[] transmitData, int requestedBytes)
         {
             using (busLock.Lock())
             {
@@ -60,7 +60,7 @@ namespace TURAG.Feldbus.Transport
             }
         }
 
-        internal async Task<Tuple<TransportErrorCode, byte[]>> TransceiveAsync(int address, byte[] transmitData, int requestedBytes)
+        internal async Task<(ErrorCode, byte[])> TransceiveAsync(int address, byte[] transmitData, int requestedBytes)
         {
             using (await busLock.LockAsync())
             {
@@ -68,7 +68,7 @@ namespace TURAG.Feldbus.Transport
             }
         }
 
-        internal TransportErrorCode Transmit(int address, byte[] transmitData)
+        internal ErrorCode Transmit(int address, byte[] transmitData)
         {
             using (busLock.Lock())
             {
@@ -76,7 +76,7 @@ namespace TURAG.Feldbus.Transport
             }
         }
 
-        internal async Task<TransportErrorCode> TransmitAsync(int address, byte[] transmitData)
+        internal async Task<ErrorCode> TransmitAsync(int address, byte[] transmitData)
         {
             using (await busLock.LockAsync())
             {
@@ -85,8 +85,8 @@ namespace TURAG.Feldbus.Transport
         }
 
 
-
-        private protected virtual async Task<Tuple<TransportErrorCode, byte[]>> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
+#if !__DOXYGEN__
+        private protected virtual async Task<(ErrorCode, byte[])> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
         {
             // clear buffer of any old data
             if (sync)
@@ -100,25 +100,15 @@ namespace TURAG.Feldbus.Transport
 
 
             byte[] transmitBuffer = AddAddressAndChecksum(transmitData, address);
-            Tuple<bool, byte[]> transceiveResult;
-
-            if (sync)
-            {
-                transceiveResult = DoTransceive(transmitBuffer, requestedBytes + 2);
-            }
-            else
-            {
-                transceiveResult = await DoTransceiveAsync(transmitBuffer, requestedBytes + 2);
-            }
-
-            bool transceiveSuccess = transceiveResult.Item1;
-            byte[] receiveBuffer = transceiveResult.Item2;
+            (bool transceiveSuccess, byte[] receiveBuffer) = sync ?
+                DoTransceive(transmitBuffer, requestedBytes + 2) :
+                await DoTransceiveAsync(transmitBuffer, requestedBytes + 2);
 
             // assume transmission to be successful
             TransmitCount += transmitBuffer.Length;
             if (!transceiveSuccess)
             {
-                return Tuple.Create(TransportErrorCode.ReceptionError, new byte[0]);
+                return (ErrorCode.TransportReceptionError, new byte[0]);
             }
             ReceiveCount += receiveBuffer.Length;
 
@@ -126,13 +116,13 @@ namespace TURAG.Feldbus.Transport
 
             if (!crcCorrect)
             {
-                return Tuple.Create(TransportErrorCode.ChecksumError, new byte[0]);
+                return (ErrorCode.TransportChecksumError, new byte[0]);
             }
 
-            return Tuple.Create(TransportErrorCode.Success, receivedData);
+            return (ErrorCode.Success, receivedData);
         }
 
-        private protected virtual async Task<TransportErrorCode> TransmitAsyncInternal(int address, byte[] transmitData, bool sync)
+        private protected virtual async Task<ErrorCode> TransmitAsyncInternal(int address, byte[] transmitData, bool sync)
         {
             byte[] transmitBuffer = new byte[transmitData.Length + 2];
             Array.Copy(transmitData, 0, transmitBuffer, 1, transmitData.Length);
@@ -152,13 +142,14 @@ namespace TURAG.Feldbus.Transport
 
             if (!success)
             {
-                return TransportErrorCode.TransmissionError;
+                return ErrorCode.TransportTransmissionError;
             }
 
             TransmitCount += transmitBuffer.Length;
 
-            return TransportErrorCode.Success;
+            return ErrorCode.Success;
         }
+#endif
 
         /// <summary>
         /// Puts the address in the front and the correct checksum at the end of the supplied
@@ -183,16 +174,21 @@ namespace TURAG.Feldbus.Transport
         /// </summary>
         /// <param name="receiveBuffer">Receive buffer.</param>
         /// <returns>Tuple containing the crc status and the data array.</returns>
+#if __DOXYGEN__
         protected Tuple<bool, byte[]> CheckCrcAndExtractData(byte[] receiveBuffer)
+#else
+        protected (bool, byte[]) CheckCrcAndExtractData(byte[] receiveBuffer)
+#endif
+
         {
             if (!CRC8.Check(receiveBuffer, 0, receiveBuffer.Length - 1, receiveBuffer[receiveBuffer.Length - 1]))
             {
-                return Tuple.Create(false, new byte[0]);
+                return (false, new byte[0]);
             }
 
             byte[] receiveBytes = new byte[receiveBuffer.Length - 2];
             Array.Copy(receiveBuffer, 1, receiveBytes, 0, receiveBytes.Length);
-            return Tuple.Create(true, receiveBytes);
+            return (true, receiveBytes);
         }
 
 
@@ -218,7 +214,11 @@ namespace TURAG.Feldbus.Transport
         /// <param name="bytesRequested">Number of bytes to receive.</param>
         /// <returns>True if transmission was successful and the requested number
         /// of bytes were received, false otherwise.</returns>
+#if __DOXYGEN__
         protected abstract Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested);
+#else
+        protected abstract (bool, byte[]) DoTransceive(byte[] data, int bytesRequested);
+#endif
 
         /// <summary>
         /// Asynchronously transmits to and afterwards receives data from the transport channel.
@@ -228,7 +228,11 @@ namespace TURAG.Feldbus.Transport
         /// <returns>A task representing the asynchronous operation. Contains 
         /// true if transmission was successful and the requested number
         /// of bytes were received, false otherwise.</returns>
+#if __DOXYGEN__
         protected abstract Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested);
+#else
+        protected abstract Task<(bool, byte[])> DoTransceiveAsync(byte[] data, int bytesRequested);
+#endif
 
         /// <summary>
         /// Clears the input buffer of the transport channel.

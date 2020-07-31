@@ -27,7 +27,11 @@ namespace TURAG.Feldbus.Transport
         }
 
         // Parses the injected receive data in the context of a Device implementation.
+#if __DOXYGEN__
         protected override Tuple<bool, byte[]> DoReceive(int bytesRequested)
+#else
+        protected override (bool, byte[]) DoReceive(int bytesRequested)
+#endif
         {
             int dataToReturn;
             bool result;
@@ -54,11 +58,15 @@ namespace TURAG.Feldbus.Transport
             {
                 data[i] = receiveBuffer.Dequeue();
             }
-            return Tuple.Create(result, data);
+            return (result, data);
         }
 
         // Parses the injected receive data in the context of a Device implementation.
+#if __DOXYGEN__
         protected override Task<Tuple<bool, byte[]>> DoReceiveAsync(int bytesRequested)
+#else
+        protected override Task<(bool, byte[])> DoReceiveAsync(int bytesRequested)
+#endif
         {
             return Task.FromResult(DoReceive(bytesRequested));
         }
@@ -96,7 +104,11 @@ namespace TURAG.Feldbus.Transport
         }
 
 
+#if __DOXYGEN__
         protected override Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested)
+#else
+        protected override (bool, byte[]) DoTransceive(byte[] data, int bytesRequested)
+#endif
         {
             // this function doesn't really make sense for this class, because how could we put the
             // response data into the response buffer?
@@ -105,7 +117,11 @@ namespace TURAG.Feldbus.Transport
 
             throw new NotImplementedException("Transceive is not supported for the MemoryTransceiver class.");
         }
+#if __DOXYGEN__
         protected override Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested)
+#else
+        protected override Task<(bool, byte[])> DoTransceiveAsync(byte[] data, int bytesRequested)
+#endif
         {
             // this function doesn't really make sense for this class, because how could we put the
             // response data into the response buffer?

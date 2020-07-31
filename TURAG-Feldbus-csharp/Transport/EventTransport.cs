@@ -83,7 +83,7 @@ namespace TURAG.Feldbus.Transport
         /// <param name="receivedData">Array containing the received data.</param>
         public void SetTransceiveResult(bool transceiveSuccessful, byte[] receivedData)
         {
-            transceiveResult = Tuple.Create(transceiveSuccessful, receivedData);
+            transceiveResult = (transceiveSuccessful, receivedData);
         }
 
         /// <summary>
@@ -99,11 +99,15 @@ namespace TURAG.Feldbus.Transport
         }
 
 
-
+#if __DOXYGEN__
         protected override Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested)
+#else
+        protected override (bool, byte[]) DoTransceive(byte[] data, int bytesRequested)
+#endif
+
         {
             // reset the exchange variable
-            transceiveResult = Tuple.Create(false, new byte[0]);
+            transceiveResult = (false, new byte[0]);
 
             // invoke the event, which should call 
             // SetTransceiveResult(), updating transceiveResult
@@ -113,7 +117,11 @@ namespace TURAG.Feldbus.Transport
             return transceiveResult;
         }
 
+#if __DOXYGEN__
         protected override Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested)
+#else
+        protected override Task<(bool, byte[])> DoTransceiveAsync(byte[] data, int bytesRequested)
+#endif
         {
             throw new NotImplementedException();
         }
@@ -163,7 +171,7 @@ namespace TURAG.Feldbus.Transport
             throw new NotImplementedException();
         }
 
-        private Tuple<bool, byte[]> transceiveResult = Tuple.Create(false, new byte[0]);
+        private (bool, byte[]) transceiveResult = (false, new byte[0]);
         private bool transmitResult = false;
         private bool clearBufferResult = false;
     }

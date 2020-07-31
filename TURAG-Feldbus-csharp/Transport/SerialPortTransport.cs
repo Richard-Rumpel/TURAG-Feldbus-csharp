@@ -42,7 +42,11 @@ namespace TURAG.Feldbus.Transport
             return Task.FromResult(true);
         }
 
+#if __DOXYGEN__
         protected override Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested)
+#else
+        protected override (bool, byte[]) DoTransceive(byte[] data, int bytesRequested)
+#endif
         {
             try
             {
@@ -50,7 +54,7 @@ namespace TURAG.Feldbus.Transport
             }
             catch (Exception)
             {
-                return Tuple.Create(false, new byte[0]);
+                return (false, new byte[0]);
             }
 
             byte[] received = new byte[bytesRequested];
@@ -67,10 +71,14 @@ namespace TURAG.Feldbus.Transport
             {
             }
 
-            return Tuple.Create(bytesReadTotal == bytesRequested, received);
+            return (bytesReadTotal == bytesRequested, received);
         }
 
+#if __DOXYGEN__
         protected override async Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested)
+#else
+        protected override async Task<(bool, byte[])> DoTransceiveAsync(byte[] data, int bytesRequested)
+#endif
         {
             try
             {
@@ -78,7 +86,7 @@ namespace TURAG.Feldbus.Transport
             }
             catch (Exception)
             {
-                return Tuple.Create(false, new byte[0]);
+                return (false, new byte[0]);
             }
 
             byte[] received = new byte[bytesRequested];
@@ -98,7 +106,7 @@ namespace TURAG.Feldbus.Transport
                 }
             }
 
-            return Tuple.Create(bytesReadTotal == bytesRequested, received);
+            return (bytesReadTotal == bytesRequested, received);
         }
 
         protected override bool DoTransmit(byte[] data)
