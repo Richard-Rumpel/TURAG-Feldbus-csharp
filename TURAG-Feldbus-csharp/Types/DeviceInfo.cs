@@ -2,7 +2,7 @@
 {
     public class DeviceInfo
     {
-        public DeviceInfo(BusResponse response)
+        internal DeviceInfo(BusResponse response)
         {
             DeviceProtocolId = response.ReadByte();
             DeviceTypeId = response.ReadByte();
@@ -18,7 +18,7 @@
             UptimeFrequency = response.ReadUInt16();
         }
 
-        public DeviceInfo(DeviceInfo info, string name, string versionInfo)
+        internal DeviceInfo(DeviceInfo info, string name, string versionInfo)
         {
             UptimeFrequency = info.UptimeFrequency;
             BufferSize = info.BufferSize;
@@ -33,7 +33,13 @@
 
         public int UptimeFrequency { get; }
 
-        public bool UptimeAvailable => UptimeFrequency != 0;
+        public bool UptimeAvailable
+        {
+            get
+            {
+                return UptimeFrequency != 0;
+            }
+        }
 
         public int BufferSize { get; }
 

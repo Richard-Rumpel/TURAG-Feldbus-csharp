@@ -2,16 +2,22 @@
 {
     public class BusTransceiveResult
     {
-        public BusTransceiveResult(bool success, BusResponse response)
+        public BusTransceiveResult(ErrorCode transportError, BusResponse response)
         {
-            this.success = success;
-            this.response = response;
+            this.TransportError = transportError;
+            this.Response = response;
         }
 
-        public bool Success => success;
-        public BusResponse Response => response;
+        public ErrorCode TransportError { get; }
 
-        readonly bool success;
-        readonly BusResponse response;
+        public bool Success
+        {
+            get
+            {
+                return TransportError == ErrorCode.Success;
+            }
+        }
+
+        public BusResponse Response { get; }
     }
 }

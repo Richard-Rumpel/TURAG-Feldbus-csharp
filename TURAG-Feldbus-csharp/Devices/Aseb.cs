@@ -11,21 +11,22 @@ namespace TURAG.Feldbus.Devices
         {
         }
 
-        public override bool Initialize()
+        public override ErrorCode Initialize()
         {
             return InitializeAsyncInternal(sync: true).GetAwaiter().GetResult();
         }
 
-        public override Task<bool> InitializeAsync()
+        public override Task<ErrorCode> InitializeAsync()
         {
             return InitializeAsyncInternal(sync: false);
         }
 
-        private async Task<bool> InitializeAsyncInternal(bool sync)
+        private async Task<ErrorCode> InitializeAsyncInternal(bool sync)
         {
-            if ((sync ? base.Initialize() : await base.InitializeAsync()) == false)
+            ErrorCode baseInitError = sync ? base.Initialize() : await base.InitializeAsync();
+            if (baseInitError != ErrorCode.Success)
             {
-                return false;
+                return baseInitError;
             }
 
             if (!initialized)
@@ -37,27 +38,27 @@ namespace TURAG.Feldbus.Devices
 
                 if (syncSize == -1 || numberOfDigitalInputs == -1 || numberOfDigitalOutputs == -1 || numberOfAnalogInputs == -1)
                 {
-                    return false;
+                    return ErrorCode.Unspecified;
                 }
 
                 if ((sync ? InitCommandNames() : await InitCommandNamesAsync()) == false)
                 {
-                    return false;
+                    return ErrorCode.Unspecified;
                 }
 
                 if ((sync ? InitAnalogInputs() : await InitAnalogInputsAsync()) == false)
                 {
-                    return false;
+                    return ErrorCode.Unspecified;
                 }
 
                 if ((sync ? InitDigitalOutputBuffer() : await InitDigitalOutputBufferAsync()) == false)
                 {
-                    return false;
+                    return ErrorCode.Unspecified;
                 }
 
                 initialized = true;
             }
-            return true;
+            return ErrorCode.Success;
         }
 
         /// <summary>

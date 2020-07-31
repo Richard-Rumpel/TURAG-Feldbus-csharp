@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Text;
 using System.Threading.Tasks;
 using TURAG.Feldbus.Transport;
@@ -7,8 +8,32 @@ using TURAG.Feldbus.Types;
 
 namespace TURAG.Feldbus.Devices
 {
+    /// <summary>
+    /// Base classes implementing the functionality common to all TURAG Feldbus devices.
+    /// This class can be used for device disovery and enumeration. If the the type of device
+    /// for a given address is known, the specific sub class should be used instead.
+    /// </summary>
     public class Device
     {
+        private enum CommandKey : byte
+        {
+            GetDeviceName = 0x00,
+            GetUptimeCounter = 0x01,
+            GetVersioninfo = 0x02,
+            GetNumberOfCorrectPackets = 0x03,
+            GetNumberOfBufferOverflows = 0x04,
+            GetNumberOfLostPackets = 0x05,
+            GetNumberOfChecksumFailures = 0x06,
+            GetAllPacketCounters = 0x07,
+            ResetPacketCounters = 0x08
+        };
+
+        /// <summary>
+        /// Creates a new instance. Initialize() should be called before calling any
+        /// other method.
+        /// </summary>
+        /// <param name="address">Bus address of the device.</param>
+        /// <param name="busAbstraction">Bus to work on.</param>
         public Device(int address, TransportAbstraction busAbstraction)
         {
             this.Address = address;
@@ -16,12 +41,18 @@ namespace TURAG.Feldbus.Devices
             this.Info = null;
         }
 
+        /// <summary>
+        /// Gets or sets the transport mechanism used for bus communication.
+        /// </summary>
         public TransportAbstraction BusAbstraction { get; set; }
 
+        /// <summary>
+        /// Returns the bus address of the device.
+        /// </summary>
         public int Address { get; }
 
         /// <summary>
-        /// Name of the device. A call to Initialize() is required 
+        /// Name of the device. A call to Initialize() or InitializeAsync() is required 
         /// before usage, but a valid string will always be returned nonetheless.
         /// </summary>
         public string Name
@@ -39,16 +70,19 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        public MasterStatistics Statistics
+        /// <summary>
+        /// Returns the transmission statistics of the bus host with this device.
+        /// </summary>
+        public HostStatistics Statistics
         {
             get
             {
-                return new MasterStatistics(checksumErrors, noAnswer, missingData, transmitErrors, successfulTransmissions);
+                return new HostStatistics(checksumErrors, noAnswer, missingData, transmitErrors, successfulTransmissions);
             }
         }
 
         /// <summary>
-        /// Device information. Call Initialize() or GetDeviceInfo() before usage:
+        /// Returns the device information. Call Initialize() or GetDeviceInfo() before usage.
         /// Returns null if neither of those functions were called or their execution failed.
         /// </summary>
         public DeviceInfo Info { get; private set; }
@@ -58,77 +92,83 @@ namespace TURAG.Feldbus.Devices
         /// classes have to call the base implementation.
         /// </summary>
         /// <returns>True on success, false otherwise.</returns>
-        public virtual bool Initialize()
+        public virtual ErrorCode Initialize()
         {
             return InitializeAsyncInternal(sync: false).GetAwaiter().GetResult();
         }
 
-        public virtual Task<bool> InitializeAsync()
+        public virtual Task<ErrorCode> InitializeAsync()
         {
             return InitializeAsyncInternal(sync: false);
         }
 
-        private async Task<bool> InitializeAsyncInternal(bool sync)
+        private async Task<ErrorCode> InitializeAsyncInternal(bool sync)
         {
             if (!fullyInitialized)
             {
-                if ((sync ? GetDeviceInfo() : await GetDeviceInfoAsync()) == null)
+                ErrorCode devInfoError = sync ? RetrieveDeviceInfo() : await RetrieveDeviceInfoAsync();
+                if (devInfoError != ErrorCode.Success)
                 {
-                    return false;
+                    return devInfoError;
                 }
 
-                string deviceName = sync ? ReceiveString(0x00, Info.NameLength) : await ReceiveStringAsync(0x00, Info.NameLength);
-                if (deviceName == null)
+                (ErrorCode nameError, string deviceName) = sync ?
+                    RetrieveString(CommandKey.GetDeviceName, Info.NameLength) :
+                    await RetrieveStringAsync(CommandKey.GetDeviceName, Info.NameLength);
+                if (nameError != ErrorCode.Success)
                 {
-                    return false;
+                    return nameError;
                 }
 
-                string versionInfo = sync ? ReceiveString(0x02, Info.VersioninfoLength) : await ReceiveStringAsync(0x02, Info.VersioninfoLength);
-                if (versionInfo == null)
+                (ErrorCode versioninfoError, string versionInfo) = sync ?
+                    RetrieveString(CommandKey.GetVersioninfo, Info.VersioninfoLength) :
+                    await RetrieveStringAsync(CommandKey.GetVersioninfo, Info.VersioninfoLength);
+                if (versioninfoError != ErrorCode.Success)
                 {
-                    return false;
+                    return versioninfoError;
                 }
 
                 Info = new DeviceInfo(Info, deviceName, versionInfo);
                 fullyInitialized = true;
             }
 
-            return true;
+            return ErrorCode.Success;
         }
 
         /// <summary>
         /// Checks device availability by sending a ping packet.
         /// </summary>
-        /// <returns>True if the device responded, false otherwise.</returns>
-        public bool SendPing()
+        /// <returns>Error code.</returns>
+        public ErrorCode SendPing()
         {
             BusRequest request = new BusRequest();
-            return Transceive(request, 0).Success;
+            return Transceive(request, 0).TransportError;
         }
 
-        public async Task<bool> SendPingAsync()
+        public async Task<ErrorCode> SendPingAsync()
         {
             BusRequest request = new BusRequest();
-            return (await TransceiveAsync(request, 0)).Success;
+            return (await TransceiveAsync(request, 0)).TransportError;
         }
 
         /// <summary>
-        /// Returns the device information. This function can be used for device identification
-        /// if only protocol and device IDs are required to save a complete initialization.
+        /// Retrieves the device information from the device. Normally this function is called
+        /// in the context of Initialize(). In cases where a full initialisation is not desired,
+        /// this function can be used. After a successful call the device info is available from
+        /// the Info property.
         /// </summary>
-        /// <returns>The device info on success, null otherwise.</returns>
-        public DeviceInfo GetDeviceInfo()
+        /// <returns>Error code.</returns>
+        public ErrorCode RetrieveDeviceInfo()
         {
-            return GetDeviceInfoAsync(sync: true).GetAwaiter().GetResult();
+            return RetrieveDeviceInfoAsync(sync: true).GetAwaiter().GetResult();
         }
 
-        public Task<DeviceInfo> GetDeviceInfoAsync()
+        public Task<ErrorCode> RetrieveDeviceInfoAsync()
         {
-            return GetDeviceInfoAsync(sync: false);
+            return RetrieveDeviceInfoAsync(sync: false);
         }
 
-
-        private async Task<DeviceInfo> GetDeviceInfoAsync(bool sync)
+        private async Task<ErrorCode> RetrieveDeviceInfoAsync(bool sync)
         {
             if (Info == null)
             {
@@ -137,113 +177,134 @@ namespace TURAG.Feldbus.Devices
 
                 BusTransceiveResult result = sync ? Transceive(request, 11) : await TransceiveAsync(request, 11);
 
-                if (!result.Success)
-                {
-                    return null;
-                }
-                else
+                if (result.Success)
                 {
                     Info = new DeviceInfo(result.Response);
                 }
+
+                return result.TransportError;
             }
 
-            return Info;
+            return ErrorCode.Success;
         }
 
         /// <summary>
-        /// Reads the the package statistics of the slave device.
+        /// Retrieves the transmission statistics of the bus device.
         /// </summary>
-        /// <returns>Instance holding the statistics on success,
-        /// null otherwise.</returns>
-        public SlaveStatistics ReceiveSlaveStatistics()
+        /// <param name="statistics">Statistics received from the device.</param>
+        /// <returns>Error code.</returns>
+        public ErrorCode RetrieveDeviceStatistics(out DeviceStatistics statistics)
         {
-            return ReceiveSlaveStatisticsAsyncInternal(sync: true).GetAwaiter().GetResult();
+            ErrorCode error;
+            (error, statistics) = RetrieveSlaveStatisticsAsyncInternal(sync: true).GetAwaiter().GetResult();
+            return error;
         }
 
-        public Task<SlaveStatistics> ReceiveSlaveStatisticsAsync()
+#if __DOXYGEN__
+        public Task<Tuple<ErrorCode, DeviceStatistics>> RetrieveSlaveStatisticsAsync()
+#else
+        public Task<(ErrorCode, DeviceStatistics)> RetrieveSlaveStatisticsAsync()
+#endif
         {
-            return ReceiveSlaveStatisticsAsyncInternal(sync: false);
+            return RetrieveSlaveStatisticsAsyncInternal(sync: false);
         }
 
-        private async Task<SlaveStatistics> ReceiveSlaveStatisticsAsyncInternal(bool sync)
+        private async Task<(ErrorCode, DeviceStatistics)> RetrieveSlaveStatisticsAsyncInternal(bool sync)
         {
-            DeviceInfo info = sync ? GetDeviceInfo() : await GetDeviceInfoAsync();
-            if (!info.StatisticsAvailable)
+            ErrorCode deviceInfoError = sync ? RetrieveDeviceInfo() : await RetrieveDeviceInfoAsync();
+            if (deviceInfoError != ErrorCode.Success)
             {
-                return null;
+                return (deviceInfoError, null);
+            }
+
+            if (Info.StatisticsAvailable == false)
+            {
+                return (ErrorCode.DeviceStatisticsNotSupported, null);
             }
 
             BusRequest request = new BusRequest();
             request.Write((byte)0x00);
-            request.Write((byte)0x07);
+            request.Write((byte)CommandKey.GetAllPacketCounters);
 
             BusTransceiveResult result = sync ? Transceive(request, 16) : await TransceiveAsync(request, 16);
 
-            if (!result.Success)
+            if (result.Success)
             {
-                return null;
-            }
-            else
-            {
-                SlaveStatistics statistics = new SlaveStatistics(
+                DeviceStatistics statistics = new DeviceStatistics(
                     result.Response.ReadUInt32(),
                     result.Response.ReadUInt32(),
                     result.Response.ReadUInt32(),
                     result.Response.ReadUInt32());
 
-                return statistics;
+                return (ErrorCode.Success, statistics);
+            }
+            else
+            {
+                return (result.TransportError, null);
             }
         }
 
         /// <summary>
-        /// Reads the time since power-up from the device.
+        /// Retrieves the time since power-up from the device.
         /// </summary>
-        /// <returns>Uptime of the device in seconds.</returns>
-        public double ReceiveUptime()
+        /// <param name="uptime">Uptime of the device in seconds.</param>
+        /// <returns>Error code.</returns>
+        public ErrorCode ReceiveUptime(out double uptime)
         {
-            return ReceiveUptimeAsyncInternal(sync: true).GetAwaiter().GetResult();
+            ErrorCode error;
+            (error, uptime) = ReceiveUptimeAsyncInternal(sync: true).GetAwaiter().GetResult();
+            return error;
         }
 
-        public Task<double> ReceiveUptimeAsync()
+#if __DOXYGEN__
+        public Task<Tuple<ErrorCode, double>> ReceiveUptimeAsync()
+#else        
+        public Task<(ErrorCode, double)> ReceiveUptimeAsync()
+#endif
         {
             return ReceiveUptimeAsyncInternal(sync: false);
         }
 
-        private async Task<double> ReceiveUptimeAsyncInternal(bool sync)
+        private async Task<(ErrorCode, double)> ReceiveUptimeAsyncInternal(bool sync)
         {
-            DeviceInfo info = sync ? GetDeviceInfo() : await GetDeviceInfoAsync();
-            if (info.UptimeFrequency == 0.0)
+            ErrorCode deviceInfoError = sync ? RetrieveDeviceInfo() : await RetrieveDeviceInfoAsync();
+            if (deviceInfoError != ErrorCode.Success)
             {
-                return Double.NaN;
+                return (deviceInfoError, Double.NaN);
+            }
+
+            if (Info.UptimeFrequency == 0.0)
+            {
+                return (ErrorCode.DeviceUptimeNotSupported, Double.NaN);
             }
 
             BusRequest request = new BusRequest();
             request.Write((byte)0x00);
-            request.Write((byte)0x01);
+            request.Write((byte)CommandKey.GetUptimeCounter);
 
             BusTransceiveResult result = sync ? Transceive(request, 4) : await TransceiveAsync(request, 4);
 
-            if (!result.Success)
+            if (result.Success)
             {
-                return Double.NaN;
+                return (ErrorCode.Success, (double)result.Response.ReadUInt32() / Info.UptimeFrequency);
             }
             else
             {
-                return (double)result.Response.ReadUInt32() / info.UptimeFrequency;
+                return (result.TransportError, Double.NaN);
             }
         }
 
-        private Task<string> ReceiveStringAsync(byte command, int stringLength)
+        private (ErrorCode, string) RetrieveString(CommandKey command, int stringLength)
         {
-            return ReceiveStringAsyncInternal(command, stringLength, sync: false);
+            return RetrieveStringAsyncInternal((byte)command, stringLength, sync: true).GetAwaiter().GetResult();
         }
 
-        private string ReceiveString(byte command, int stringLength)
+        private Task<(ErrorCode, string)> RetrieveStringAsync(CommandKey command, int stringLength)
         {
-            return ReceiveStringAsyncInternal(command, stringLength, sync: true).GetAwaiter().GetResult();
+            return RetrieveStringAsyncInternal((byte)command, stringLength, sync: false);
         }
 
-        private async Task<string> ReceiveStringAsyncInternal(byte command, int stringLength, bool sync)
+        private async Task<(ErrorCode, string)> RetrieveStringAsyncInternal(byte command, int stringLength, bool sync)
         {
             BusRequest request = new BusRequest();
             request.Write((byte)0);
@@ -253,15 +314,21 @@ namespace TURAG.Feldbus.Devices
 
             if (!result.Success)
             {
-                return null;
+                return (result.TransportError, null);
             }
             else
             {
-                return Encoding.UTF8.GetString(result.Response.ReadBytes(stringLength));
+                return (result.TransportError, Encoding.UTF8.GetString(result.Response.ReadBytes(stringLength)));
             }
         }
 
-
+        /// <summary>
+        /// Pings devices on the bus, starting with a given address, until no response is received. 
+        /// The list of devices which gave an answer is returned as a result.
+        /// </summary>
+        /// <param name="startAdress">First address to query.</param>
+        /// <param name="busAbstraction">bus to work on.</param>
+        /// <returns>List of valid addresses.</returns>
         static public async Task<List<int>> ScanGaplessBusAsync(int startAdress, TransportAbstraction busAbstraction)
         {
             if (startAdress < 1 || startAdress > 127)
@@ -275,7 +342,7 @@ namespace TURAG.Feldbus.Devices
             while (true)
             {
                 Device dev = new Device(address, busAbstraction);
-                if (!await dev.SendPingAsync())
+                if (await dev.SendPingAsync() != ErrorCode.Success)
                 {
                     break;
                 }
@@ -302,34 +369,30 @@ namespace TURAG.Feldbus.Devices
         {
             int attempts = 3;
             BusResponse response = new BusResponse(responseSize);
+            Types.ErrorCode transceiveStatus = Types.ErrorCode.TransportTransmissionError;
 
             while (attempts > 0)
             {
-                Tuple<TransportErrorCode, byte[]> result;
-                if (sync)
-                {
-                    result = BusAbstraction.Transceive(Address, request.GetByteArray(), responseSize);
-                }
-                else
-                {
-                    result = await BusAbstraction.TransceiveAsync(Address, request.GetByteArray(), responseSize);
-                }
+                (ErrorCode, byte[]) result = sync ?
+                    BusAbstraction.Transceive(Address, request.GetByteArray(), responseSize) :
+                    await BusAbstraction.TransceiveAsync(Address, request.GetByteArray(), responseSize);
 
-                TransportErrorCode transceiveStatus = result.Item1;
+
+                transceiveStatus = result.Item1;
                 byte[] receiveBuffer = result.Item2;
 
                 switch (transceiveStatus)
                 {
-                    case TransportErrorCode.Success:
+                    case Types.ErrorCode.Success:
                         response.Fill(receiveBuffer);
                         ++successfulTransmissions;
-                        return new BusTransceiveResult(true, response);
+                        return new BusTransceiveResult(Types.ErrorCode.Success, response);
 
-                    case TransportErrorCode.ChecksumError:
+                    case Types.ErrorCode.TransportChecksumError:
                         ++checksumErrors;
                         break;
 
-                    case TransportErrorCode.ReceptionError:
+                    case Types.ErrorCode.TransportReceptionError:
                         if (receiveBuffer.Length == 0)
                         {
                             ++noAnswer;
@@ -340,7 +403,7 @@ namespace TURAG.Feldbus.Devices
                         }
                         break;
 
-                    case TransportErrorCode.TransmissionError:
+                    case Types.ErrorCode.TransportTransmissionError:
                         ++transmitErrors;
                         break;
                 }
@@ -348,34 +411,35 @@ namespace TURAG.Feldbus.Devices
                 attempts--;
             }
 
-            //L.C(this).Debug("!!!!!!!!!!! Transceive 3 attempts failed!");
-            return new BusTransceiveResult(false, response);
+            return new BusTransceiveResult(transceiveStatus, response);
         }
 
 
-        protected bool SendBroadcast(BusBroadcast broadcast)
+        protected ErrorCode SendBroadcast(BusBroadcast broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: true).GetAwaiter().GetResult();
         }
-        protected Task<bool> SendBroadcastAsync(BusBroadcast broadcast)
+        protected Task<ErrorCode> SendBroadcastAsync(BusBroadcast broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: false);
         }
-        private async Task<bool> SendBroadcastAsyncInternal(BusBroadcast broadcast, bool sync)
+        private async Task<ErrorCode> SendBroadcastAsyncInternal(BusBroadcast broadcast, bool sync)
         {
             int attempts = 3;
 
             while (attempts > 0)
             {
-                TransportErrorCode result = await BusAbstraction.TransmitAsync(Address, broadcast.GetByteArray());
+                ErrorCode result = sync ?
+                    BusAbstraction.Transmit(Address, broadcast.GetByteArray()) :
+                    await BusAbstraction.TransmitAsync(Address, broadcast.GetByteArray());
 
                 switch (result)
                 {
-                    case TransportErrorCode.Success:
+                    case ErrorCode.Success:
                         ++successfulTransmissions;
-                        return true;
+                        return ErrorCode.Success;
 
-                    case TransportErrorCode.TransmissionError:
+                    case ErrorCode.TransportTransmissionError:
                         ++transmitErrors;
                         break;
                 }
@@ -383,8 +447,22 @@ namespace TURAG.Feldbus.Devices
                 attempts--;
             }
 
-            return false;
+            return ErrorCode.TransportTransmissionError;
         }
+
+
+        /// <summary>
+        /// Returns the description of the supplied error code.
+        /// </summary>
+        /// <param name="error">Error code.</param>
+        /// <returns>String representing the given error code.</returns>
+        static public string ErrorString(ErrorCode error)
+        {
+            string name = error.ToString();
+            string description = error.GetAttributeOfType<DescriptionAttribute>().Description;
+            return name + ": " + description;
+        }
+
 
         private uint successfulTransmissions = 0;
         private uint checksumErrors = 0;
@@ -392,5 +470,23 @@ namespace TURAG.Feldbus.Devices
         private uint missingData = 0;
         private uint transmitErrors = 0;
         private bool fullyInitialized = false;
+    }
+
+    internal static class EnumHelper
+    {
+        /// <summary>
+        /// Gets an attribute on an enum field value
+        /// </summary>
+        /// <typeparam name="T">The type of the attribute you want to retrieve</typeparam>
+        /// <param name="enumVal">The enum value</param>
+        /// <returns>The attribute of type T that exists on the enum value</returns>
+        /// <example><![CDATA[string desc = myEnumVariable.GetAttributeOfType<DescriptionAttribute>().Description;]]></example>
+        public static T GetAttributeOfType<T>(this Enum enumVal) where T : System.Attribute
+        {
+            var type = enumVal.GetType();
+            var memInfo = type.GetMember(enumVal.ToString());
+            var attributes = memInfo[0].GetCustomAttributes(typeof(T), false);
+            return (attributes.Length > 0) ? (T)attributes[0] : null;
+        }
     }
 }
