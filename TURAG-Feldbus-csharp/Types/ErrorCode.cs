@@ -42,6 +42,12 @@ namespace TURAG.Feldbus.Types
 
 
         /// <summary>
+        /// A device function was called before its initialization.
+        /// </summary>
+        [Description("A device function was called before its initialization.")]
+        DeviceNotInitialized,
+
+        /// <summary>
         /// This device does not support querying its transmission statistics.
         /// </summary>
         [Description("This device does not support querying its transmission statistics.")]
@@ -52,5 +58,24 @@ namespace TURAG.Feldbus.Types
         /// </summary>
         [Description("This device does not support querying its uptime.")]
         DeviceUptimeNotSupported,
+
+
+        /// <summary>
+        /// The given key is invalid for this Stellantrieb device.
+        /// </summary>
+        [Description("The given key is invalid for this Stellantrieb device.")]
+        StellantriebInvalidKey,
+
+        /// <summary>
+        /// The device reported a command set length of 0, which is unsupported.
+        /// </summary>
+        [Description("The device reported a command set length of 0, which is unsupported.")]
+        StellantriebCommandLengthZero,
+
+        /// <summary>
+        /// The value for the given key cannot be written.
+        /// </summary>
+        [Description("The value for the given key cannot be written.")]
+        StellantriebValueReadOnly,
     }
 }
