@@ -28,6 +28,8 @@ namespace TURAG.Feldbus.Devices
             ResetPacketCounters = 0x08
         };
 
+        private static readonly string defaultDeviceName = "Feldbus Device";
+
         /// <summary>
         /// Creates a new instance. Initialize() should be called before calling any
         /// other method.
@@ -52,99 +54,92 @@ namespace TURAG.Feldbus.Devices
         public int Address { get; }
 
         /// <summary>
-        /// Name of the device. A call to Initialize() or InitializeAsync() is required 
-        /// before usage, but a valid string will always be returned nonetheless.
+        /// Name of the device. This is a shortcut to ExtendedInfo.DeviceName. 
+        /// A call to RetrieveExtendedDeviceInfo() or RetrieveExtendedDeviceInfoAsync() is required 
+        /// before usage, otherwise a default string will be returned.
         /// </summary>
         public string Name
         {
             get
             {
-                if (Info == null)
+                if (ExtendedInfo == null)
                 {
-                    return "uninitialized";
+                    return defaultDeviceName;
                 }
                 else
                 {
-                    return Info.Name;
+                    return ExtendedInfo.DeviceName;
                 }
             }
         }
+
+        /// <summary>
+        /// Returns the device information. Call Initialize() or InitializeAsync() before usage.
+        /// Returns null if neither was called or their execution failed.
+        /// </summary>
+        public DeviceInfo Info { get; private set; }
+
+        private InternalDeviceInfoPacket InternalDeviceInfo { get; set; }
+
+        /// <summary>
+        /// Returns the extended device information. Call RetrieveExtendedDeviceInfo() or 
+        /// RetrieveExtendedDeviceInfoAsync() before usage.
+        /// Returns null if neither was called or their execution failed.
+        /// </summary>
+        public ExtendedDeviceInfo ExtendedInfo { get; private set; }
 
         /// <summary>
         /// Returns the transmission statistics of the bus host with this device.
         /// </summary>
-        public HostStatistics Statistics
+        public HostPacketStatistics HostStatistics
         {
             get
             {
-                return new HostStatistics(checksumErrors, noAnswer, missingData, transmitErrors, successfulTransmissions);
+                return new HostPacketStatistics(checksumErrors, noAnswer, missingData, transmitErrors, successfulTransmissions);
             }
         }
 
         /// <summary>
-        /// Returns the device information. Call Initialize() or GetDeviceInfo() before usage.
-        /// Returns null if neither of those functions were called or their execution failed.
-        /// </summary>
-        public DeviceInfo Info { get; private set; }
-
-        /// <summary>
-        /// Initializes the object. Should be called before usage. Overriding
+        /// Initializes the object by retrieving the device information
+        /// structure. Should be called before further usage of the class. Overriding
         /// classes have to call the base implementation.
         /// </summary>
-        /// <returns>True on success, false otherwise.</returns>
+        /// <returns>Error code describing the result of the call.</returns>
         public virtual ErrorCode Initialize()
         {
-            return InitializeAsyncInternal(sync: false).GetAwaiter().GetResult();
-        }
-
-        public virtual Task<ErrorCode> InitializeAsync()
-        {
-            return InitializeAsyncInternal(sync: false);
-        }
-
-        private async Task<ErrorCode> InitializeAsyncInternal(bool sync)
-        {
-            if (!fullyInitialized)
-            {
-                ErrorCode devInfoError = sync ? RetrieveDeviceInfo() : await RetrieveDeviceInfoAsync();
-                if (devInfoError != ErrorCode.Success)
-                {
-                    return devInfoError;
-                }
-
-                (ErrorCode nameError, string deviceName) = sync ?
-                    RetrieveString(CommandKey.GetDeviceName, Info.NameLength) :
-                    await RetrieveStringAsync(CommandKey.GetDeviceName, Info.NameLength);
-                if (nameError != ErrorCode.Success)
-                {
-                    return nameError;
-                }
-
-                (ErrorCode versioninfoError, string versionInfo) = sync ?
-                    RetrieveString(CommandKey.GetVersioninfo, Info.VersioninfoLength) :
-                    await RetrieveStringAsync(CommandKey.GetVersioninfo, Info.VersioninfoLength);
-                if (versioninfoError != ErrorCode.Success)
-                {
-                    return versioninfoError;
-                }
-
-                Info = new DeviceInfo(Info, deviceName, versionInfo);
-                fullyInitialized = true;
-            }
-
-            return ErrorCode.Success;
+            return RetrieveDeviceInfo();
         }
 
         /// <summary>
-        /// Checks device availability by sending a ping packet.
+        /// Initializes the object by retrieving the device information
+        /// structure. Should be called before further usage of the class. Overriding
+        /// classes have to call the base implementation.
         /// </summary>
-        /// <returns>Error code.</returns>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public virtual Task<ErrorCode> InitializeAsync()
+        {
+            return RetrieveDeviceInfoAsync();
+        }
+
+
+        /// <summary>
+        /// Checks device availability by sending a ping packet. A ping packet
+        /// is the shortest possible payload.
+        /// </summary>
+        /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode SendPing()
         {
             BusRequest request = new BusRequest();
             return Transceive(request, 0).TransportError;
         }
 
+        /// <summary>
+        /// Checks device availability by sending a ping packet. A ping packet
+        /// is the shortest possible payload.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
         public async Task<ErrorCode> SendPingAsync()
         {
             BusRequest request = new BusRequest();
@@ -152,18 +147,17 @@ namespace TURAG.Feldbus.Devices
         }
 
         /// <summary>
-        /// Retrieves the device information from the device. Normally this function is called
-        /// in the context of Initialize(). In cases where a full initialisation is not desired,
-        /// this function can be used. After a successful call the device info is available from
+        /// Retrieves the device information from the device. This function is called
+        /// in the context of Initialize(). After a successful call the device info is available from
         /// the Info property.
         /// </summary>
-        /// <returns>Error code.</returns>
-        public ErrorCode RetrieveDeviceInfo()
+        /// <returns>Error code describing the result of the call.</returns>
+        private ErrorCode RetrieveDeviceInfo()
         {
             return RetrieveDeviceInfoAsync(sync: true).GetAwaiter().GetResult();
         }
 
-        public Task<ErrorCode> RetrieveDeviceInfoAsync()
+        private Task<ErrorCode> RetrieveDeviceInfoAsync()
         {
             return RetrieveDeviceInfoAsync(sync: false);
         }
@@ -179,7 +173,8 @@ namespace TURAG.Feldbus.Devices
 
                 if (result.Success)
                 {
-                    Info = new DeviceInfo(result.Response);
+                    InternalDeviceInfo = new InternalDeviceInfoPacket(result.Response);
+                    Info = new DeviceInfo(InternalDeviceInfo);
                 }
 
                 return result.TransportError;
@@ -189,27 +184,87 @@ namespace TURAG.Feldbus.Devices
         }
 
         /// <summary>
+        /// Retrieves extended information about the device. After a successful call this data is available from
+        /// the ExtendedInfo property.
+        /// </summary>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode RetrieveExtendedDeviceInfo()
+        {
+            return RetrieveExtendedDeviceInfoAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Retrieves extended information about the device. After a successful call this data is available from
+        /// the ExtendedInfo property.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> RetrieveExtendedDeviceInfoAsync()
+        {
+            return RetrieveExtendedDeviceInfoAsyncInternal(sync: false);
+        }
+
+        private async Task<ErrorCode> RetrieveExtendedDeviceInfoAsyncInternal(bool sync)
+        {
+            if (ExtendedInfo == null)
+            {
+                ErrorCode deviceInfoError = sync ? RetrieveDeviceInfo() : await RetrieveDeviceInfoAsync();
+                if (deviceInfoError != ErrorCode.Success)
+                {
+                    return deviceInfoError;
+                }
+
+                (ErrorCode nameError, string deviceName) = sync ?
+                    RetrieveString(CommandKey.GetDeviceName, InternalDeviceInfo.NameLength) :
+                    await RetrieveStringAsync(CommandKey.GetDeviceName, InternalDeviceInfo.NameLength);
+                if (nameError != ErrorCode.Success)
+                {
+                    return nameError;
+                }
+
+                (ErrorCode versioninfoError, string versionInfo) = sync ?
+                    RetrieveString(CommandKey.GetVersioninfo, InternalDeviceInfo.VersionInfoLength) :
+                    await RetrieveStringAsync(CommandKey.GetVersioninfo, InternalDeviceInfo.VersionInfoLength);
+                if (versioninfoError != ErrorCode.Success)
+                {
+                    return versioninfoError;
+                }
+
+                ExtendedInfo = new ExtendedDeviceInfo(deviceName, versionInfo);
+            }
+
+            return ErrorCode.Success;
+        }
+
+
+        /// <summary>
         /// Retrieves the transmission statistics of the bus device.
         /// </summary>
         /// <param name="statistics">Statistics received from the device.</param>
-        /// <returns>Error code.</returns>
-        public ErrorCode RetrieveDeviceStatistics(out DeviceStatistics statistics)
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode RetrieveDeviceStatistics(out DevicePacketStatistics statistics)
         {
             ErrorCode error;
-            (error, statistics) = RetrieveSlaveStatisticsAsyncInternal(sync: true).GetAwaiter().GetResult();
+            (error, statistics) = RetrieveDeviceStatisticsAsyncInternal(sync: true).GetAwaiter().GetResult();
             return error;
         }
 
+        /// <summary>
+        /// Retrieves the transmission statistics of the bus device.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call and an instance
+        /// of the class DevicePacketStatistics containing the data received from the device..</returns>
 #if __DOXYGEN__
-        public Task<Tuple<ErrorCode, DeviceStatistics>> RetrieveSlaveStatisticsAsync()
+        public Task<Tuple<ErrorCode, DevicePacketStatistics>> RetrieveDeviceStatisticsAsync()
 #else
-        public Task<(ErrorCode, DeviceStatistics)> RetrieveSlaveStatisticsAsync()
+        public Task<(ErrorCode, DevicePacketStatistics)> RetrieveDeviceStatisticsAsync()
 #endif
         {
-            return RetrieveSlaveStatisticsAsyncInternal(sync: false);
+            return RetrieveDeviceStatisticsAsyncInternal(sync: false);
         }
 
-        private async Task<(ErrorCode, DeviceStatistics)> RetrieveSlaveStatisticsAsyncInternal(bool sync)
+        private async Task<(ErrorCode, DevicePacketStatistics)> RetrieveDeviceStatisticsAsyncInternal(bool sync)
         {
             ErrorCode deviceInfoError = sync ? RetrieveDeviceInfo() : await RetrieveDeviceInfoAsync();
             if (deviceInfoError != ErrorCode.Success)
@@ -230,7 +285,7 @@ namespace TURAG.Feldbus.Devices
 
             if (result.Success)
             {
-                DeviceStatistics statistics = new DeviceStatistics(
+                DevicePacketStatistics statistics = new DevicePacketStatistics(
                     result.Response.ReadUInt32(),
                     result.Response.ReadUInt32(),
                     result.Response.ReadUInt32(),
@@ -248,24 +303,30 @@ namespace TURAG.Feldbus.Devices
         /// Retrieves the time since power-up from the device.
         /// </summary>
         /// <param name="uptime">Uptime of the device in seconds.</param>
-        /// <returns>Error code.</returns>
-        public ErrorCode ReceiveUptime(out double uptime)
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode RetrieveUptime(out double uptime)
         {
             ErrorCode error;
-            (error, uptime) = ReceiveUptimeAsyncInternal(sync: true).GetAwaiter().GetResult();
+            (error, uptime) = RetrieveUptimeAsyncInternal(sync: true).GetAwaiter().GetResult();
             return error;
         }
 
+        /// <summary>
+        /// Retrieves the time since power-up from the device.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call and
+        /// the uptime of the device in seconds..</returns>
 #if __DOXYGEN__
-        public Task<Tuple<ErrorCode, double>> ReceiveUptimeAsync()
-#else        
-        public Task<(ErrorCode, double)> ReceiveUptimeAsync()
+        public Task<Tuple<ErrorCode, double>> RetrieveUptimeAsync()
+#else
+        public Task<(ErrorCode, double)> RetrieveUptimeAsync()
 #endif
         {
-            return ReceiveUptimeAsyncInternal(sync: false);
+            return RetrieveUptimeAsyncInternal(sync: false);
         }
 
-        private async Task<(ErrorCode, double)> ReceiveUptimeAsyncInternal(bool sync)
+        private async Task<(ErrorCode, double)> RetrieveUptimeAsyncInternal(bool sync)
         {
             ErrorCode deviceInfoError = sync ? RetrieveDeviceInfo() : await RetrieveDeviceInfoAsync();
             if (deviceInfoError != ErrorCode.Success)
@@ -469,7 +530,6 @@ namespace TURAG.Feldbus.Devices
         private uint noAnswer = 0;
         private uint missingData = 0;
         private uint transmitErrors = 0;
-        private bool fullyInitialized = false;
     }
 
     internal static class EnumHelper

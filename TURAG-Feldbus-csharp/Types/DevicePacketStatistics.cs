@@ -4,9 +4,9 @@
     /// Contains information about the number of successful and failed transmissions
     /// of the device with its bus host.
     /// </summary>
-    public class DeviceStatistics
+    public class DevicePacketStatistics
     {
-        internal DeviceStatistics(uint correct, uint overflow, uint lost, uint chksum_error)
+        internal DevicePacketStatistics(uint correct, uint overflow, uint lost, uint chksum_error)
         {
             NoError = correct;
             BufferOverflow = overflow;

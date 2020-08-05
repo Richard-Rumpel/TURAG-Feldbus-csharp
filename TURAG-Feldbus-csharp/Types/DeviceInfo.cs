@@ -1,8 +1,68 @@
 ﻿namespace TURAG.Feldbus.Types
 {
+    /// <summary>
+    /// Class containing basic information about the device.
+    /// </summary>
     public class DeviceInfo
     {
-        internal DeviceInfo(BusResponse response)
+        internal DeviceInfo(InternalDeviceInfoPacket info)
+        {
+            UptimeFrequency = info.UptimeFrequency;
+            BufferSize = info.BufferSize;
+            DeviceProtocolId = info.DeviceProtocolId;
+            CrcType = info.CrcType;
+            StatisticsAvailable = info.StatisticsAvailable;
+        }
+
+        /// <summary>
+        /// Protocol ID.
+        /// </summary>
+        public int DeviceProtocolId { get; }
+
+        /// <summary>
+        /// Device type ID.
+        /// </summary>
+        public int DeviceTypeId { get; }
+
+        /// <summary>
+        /// CRC mode used by the device.
+        /// </summary>
+        public int CrcType { get; }
+
+        /// <summary>
+        /// Whether the device supports querying its transmission statistics. If 
+        /// this field equals false, calls to RetrieveDeviceStatistics() or RetrieveDeviceStatisticsAsync()
+        /// will fail.
+        /// </summary>
+        public bool StatisticsAvailable { get; }
+
+        /// <summary>
+        /// Buffer size of the device, defining boundaries on the maximum packet size it can
+        /// process.
+        /// </summary>
+        public int BufferSize { get; }
+
+        /// <summary>
+        /// Frequency of the uptime counter of the device.
+        /// </summary>
+        public int UptimeFrequency { get; }
+
+        /// <summary>
+        /// Returns whether the device maintains an uptime counter. If this field equals false,
+        /// calls to RetrieveUptime() or RetrieveUptimeAsync() will fail.
+        /// </summary>
+        public bool UptimeAvailable
+        {
+            get
+            {
+                return UptimeFrequency != 0;
+            }
+        }
+    }
+
+    internal class InternalDeviceInfoPacket
+    {
+        public InternalDeviceInfoPacket(BusResponse response)
         {
             DeviceProtocolId = response.ReadByte();
             DeviceTypeId = response.ReadByte();
@@ -12,51 +72,17 @@
             BufferSize = response.ReadUInt16();
             response.ReadUInt16(); // reserved bytes
             NameLength = response.ReadByte();
-            Name = "???";
-            VersioninfoLength = response.ReadByte();
-            VersionInfo = "???";
+            VersionInfoLength = response.ReadByte();
             UptimeFrequency = response.ReadUInt16();
         }
 
-        internal DeviceInfo(DeviceInfo info, string name, string versionInfo)
-        {
-            UptimeFrequency = info.UptimeFrequency;
-            BufferSize = info.BufferSize;
-            DeviceProtocolId = info.DeviceProtocolId;
-            CrcType = info.CrcType;
-            NameLength = info.NameLength;
-            Name = name;
-            VersioninfoLength = info.VersioninfoLength;
-            VersionInfo = versionInfo;
-            StatisticsAvailable = info.StatisticsAvailable;
-        }
-
-        public int UptimeFrequency { get; }
-
-        public bool UptimeAvailable
-        {
-            get
-            {
-                return UptimeFrequency != 0;
-            }
-        }
-
-        public int BufferSize { get; }
-
         public int DeviceProtocolId { get; }
-
         public int DeviceTypeId { get; }
-
         public int CrcType { get; }
-
-        public int NameLength { get; }
-
-        public string Name { get; }
-
-        public int VersioninfoLength { get; }
-
-        public string VersionInfo { get; }
-
         public bool StatisticsAvailable { get; }
+        public int BufferSize { get; }
+        public int NameLength { get; }
+        public int VersionInfoLength { get; }
+        public int UptimeFrequency { get; }
     }
 }

@@ -4,9 +4,9 @@
     /// Contains information about the number of successful and failed transmissions
     /// of the host with the bus device.
     /// </summary>
-    public class HostStatistics
+    public class HostPacketStatistics
     {
-        internal HostStatistics(uint checksumErrors, uint noAnswer, uint missingData, uint transmitErrors, uint noErrors)
+        internal HostPacketStatistics(uint checksumErrors, uint noAnswer, uint missingData, uint transmitErrors, uint noErrors)
         {
             ChecksumErrors = checksumErrors;
             NoAnswer = noAnswer;

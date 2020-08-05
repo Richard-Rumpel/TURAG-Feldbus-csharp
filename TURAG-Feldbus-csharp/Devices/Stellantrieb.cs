@@ -109,25 +109,15 @@ namespace TURAG.Feldbus.Devices
 
         public override ErrorCode Initialize()
         {
-            return InitializeAsyncInternal(false, sync: true).GetAwaiter().GetResult();
+            return InitializeAsyncInternal(sync: true).GetAwaiter().GetResult();
         }
 
         public override Task<ErrorCode> InitializeAsync()
         {
-            return InitializeAsyncInternal(false, sync: false);
+            return InitializeAsyncInternal(sync: false);
         }
 
-        public ErrorCode Initialize(bool retrieveCommandNames)
-        {
-            return InitializeAsyncInternal(retrieveCommandNames, sync: true).GetAwaiter().GetResult();
-        }
-
-        public Task<ErrorCode> InitializeAsync(bool retrieveCommandNames)
-        {
-            return InitializeAsyncInternal(retrieveCommandNames, sync: false);
-        }
-
-        private async Task<ErrorCode> InitializeAsyncInternal(bool retrieveCommandNames, bool sync)
+        private async Task<ErrorCode> InitializeAsyncInternal(bool sync)
         {
             ErrorCode baseInitError = sync ? base.Initialize() : await base.InitializeAsync();
             if (baseInitError != ErrorCode.Success)
@@ -135,16 +125,7 @@ namespace TURAG.Feldbus.Devices
                 return baseInitError;
             }
 
-            ErrorCode populateCommandsetError = sync ?
-                PopulateCommandSet(retrieveCommandNames) :
-                await PopulateCommandSetAsync(retrieveCommandNames);
-
-            if (populateCommandsetError != ErrorCode.Success)
-            {
-                return populateCommandsetError;
-            }
-
-            return ErrorCode.Success;
+            return sync ? PopulateCommandSet() : await PopulateCommandSetAsync();
         }
 
         private (ErrorCode, uint) GetCommandsetLength()
@@ -177,17 +158,17 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        private ErrorCode PopulateCommandSet(bool retreiveCommandNames)
+        private ErrorCode PopulateCommandSet()
         {
-            return PopulateCommandSetAsyncInternal(retreiveCommandNames, sync: true).GetAwaiter().GetResult();
+            return PopulateCommandSetAsyncInternal(sync: true).GetAwaiter().GetResult();
         }
 
-        private Task<ErrorCode> PopulateCommandSetAsync(bool retreiveCommandNames)
+        private Task<ErrorCode> PopulateCommandSetAsync()
         {
-            return PopulateCommandSetAsyncInternal(retreiveCommandNames, sync: false);
+            return PopulateCommandSetAsyncInternal(sync: false);
         }
 
-        private async Task<ErrorCode> PopulateCommandSetAsyncInternal(bool retreiveCommandNames, bool sync)
+        private async Task<ErrorCode> PopulateCommandSetAsyncInternal(bool sync)
         {
             (ErrorCode commandSetLengthError, uint commandSetLength) = sync ?
                 GetCommandsetLength() :
@@ -223,30 +204,62 @@ namespace TURAG.Feldbus.Devices
                     return result.TransportError;
                 }
 
-                string commandName = "";
-
-                if (retreiveCommandNames)
-                {
-                    ErrorCode commandNameError;
-                    (commandNameError, commandName) = sync ?
-                        GetCommandName((byte)(i + 1)) :
-                        await GetCommandNameAsync((byte)(i + 1));
-
-                    if (commandNameError != ErrorCode.Success)
-                    {
-                        Log.Logger?.Error("unable to retrieve command name", this);
-                        return commandNameError;
-                    }
-                }
-
                 tempCommandSet[i] = new CommandInternal(
-                    commandName,
                     (Command.Access)result.Response.ReadByte(),
                     (Command.Length)result.Response.ReadByte(),
                     result.Response.ReadSingle());
             }
 
             commandSet = tempCommandSet;
+
+            return ErrorCode.Success;
+        }
+
+        public ErrorCode RetrieveCommandNames()
+        {
+            return RetrieveCommandNamesAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        public Task<ErrorCode> RetrieveCommandNamesAsync()
+        {
+            return RetrieveCommandNamesAsyncInternal(sync: false);
+        }
+
+        private async Task<ErrorCode> RetrieveCommandNamesAsyncInternal(bool sync)
+        {
+            if (commandSet == null)
+            {
+                ErrorCode populateCommandSetError = sync ?
+                    PopulateCommandSet() :
+                    await PopulateCommandSetAsync();
+
+                if (populateCommandSetError != ErrorCode.Success)
+                {
+                    Log.Logger?.Error("unable to retrieve command set", this);
+                    return populateCommandSetError;
+                }
+            }
+
+            for (int i = 0; i < commandSet.Length; ++i)
+            {
+                (ErrorCode commandNameError, string commandName) = sync ?
+                    GetCommandName((byte)(i + 1)) :
+                    await GetCommandNameAsync((byte)(i + 1));
+
+                if (commandNameError != ErrorCode.Success)
+                {
+                    Log.Logger?.Error("unable to retrieve command name", this);
+                    return commandNameError;
+                }
+
+                Command oldCommand = commandSet[i];
+
+                commandSet[i] = new CommandInternal(
+                    commandName,
+                    oldCommand.AccessMode,
+                    oldCommand.CommandLength,
+                    oldCommand.Factor);
+            }
 
             return ErrorCode.Success;
         }
