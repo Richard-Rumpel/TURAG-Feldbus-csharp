@@ -626,19 +626,19 @@ namespace TURAG.Feldbus.Devices
             {
                 case Command.Length.Byte:
                     request.Write((byte)(value / command.Factor));
-                    return sync ? Transceive(request, 2).TransportError : (await TransceiveAsync(request, 2)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 case Command.Length.Short:
                     request.Write((Int16)(value / command.Factor));
-                    return sync ? Transceive(request, 3).TransportError : (await TransceiveAsync(request, 3)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 case Command.Length.Long:
                     request.Write((Int32)(value / command.Factor));
-                    return sync ? Transceive(request, 5).TransportError : (await TransceiveAsync(request, 5)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 case Command.Length.Float:
                     request.Write(value / command.Factor);
-                    return sync ? Transceive(request, 5).TransportError : (await TransceiveAsync(request, 5)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 default:
                     return ErrorCode.Unspecified;
@@ -695,21 +695,21 @@ namespace TURAG.Feldbus.Devices
             {
                 case Command.Length.Byte:
                     request.Write((byte)(value));
-                    return sync ? Transceive(request, 2).TransportError : (await TransceiveAsync(request, 2)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 case Command.Length.Short:
                     request.Write((short)(value));
-                    return sync ? Transceive(request, 3).TransportError : (await TransceiveAsync(request, 3)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 case Command.Length.Long:
                     request.Write((Int32)(value));
-                    return sync ? Transceive(request, 5).TransportError : (await TransceiveAsync(request, 5)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 case Command.Length.Float:
                     // this actually does not make sense. But the problem ist that the configuration is
                     // invalid in the first place.
                     request.Write((float)value);
-                    return sync ? Transceive(request, 5).TransportError : (await TransceiveAsync(request, 5)).TransportError;
+                    return sync ? Transceive(request, 0).TransportError : (await TransceiveAsync(request, 0)).TransportError;
 
                 default:
                     return ErrorCode.Unspecified;
