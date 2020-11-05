@@ -490,7 +490,7 @@ namespace TURAG.Feldbus.Devices
                 Log.Logger?.Error("%s: key not supported", this);
                 return (ErrorCode.StellantriebInvalidKey, 0);
             }
-            if (command.IsControlValue)
+            if (!command.IsControlValue)
             {
                 Log.Logger?.Error("value with key %u is not a control value, which was requested", this);
                 return (ErrorCode.StellantriebInvalidKey, 0);
