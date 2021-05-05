@@ -10,10 +10,12 @@ namespace TURAG.Feldbus.Devices
 {
     /// <summary>
     /// Base classes implementing the functionality common to all TURAG Feldbus devices.
-    /// This class can be used for device disovery and enumeration. If the the type of device
-    /// for a given address is known, the specific sub class should be used instead.
+    /// This class can be used for device discovery and enumeration. 
+    /// 
+    /// A typical flow of operation could look like this:
+    /// - 
     /// </summary>
-    public class Device
+    public class Device : BaseDevice
     {
         private enum CommandKey : byte
         {
@@ -36,17 +38,13 @@ namespace TURAG.Feldbus.Devices
         /// </summary>
         /// <param name="address">Bus address of the device.</param>
         /// <param name="busAbstraction">Bus to work on.</param>
-        public Device(int address, TransportAbstraction busAbstraction)
+        public Device(int address, TransportAbstraction busAbstraction) : base(busAbstraction)
         {
             this.Address = address;
             this.BusAbstraction = busAbstraction;
             this.Info = null;
         }
 
-        /// <summary>
-        /// Gets or sets the transport mechanism used for bus communication.
-        /// </summary>
-        public TransportAbstraction BusAbstraction { get; set; }
 
         /// <summary>
         /// Returns the bus address of the device.
@@ -89,17 +87,6 @@ namespace TURAG.Feldbus.Devices
         public ExtendedDeviceInfo ExtendedInfo { get; private set; }
 
         /// <summary>
-        /// Returns the transmission statistics of the bus host with this device.
-        /// </summary>
-        public HostPacketStatistics HostStatistics
-        {
-            get
-            {
-                return new HostPacketStatistics(checksumErrors, noAnswer, missingData, transmitErrors, successfulTransmissions);
-            }
-        }
-
-        /// <summary>
         /// Initializes the object by retrieving the device information
         /// structure. Should be called before further usage of the class. Overriding
         /// classes have to call the base implementation.
@@ -121,6 +108,7 @@ namespace TURAG.Feldbus.Devices
         {
             return RetrieveDeviceInfoAsync();
         }
+
 
 
         /// <summary>
@@ -383,170 +371,17 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-        /// <summary>
-        /// Pings devices on the bus, starting with a given address, until no response is received. 
-        /// The list of devices which gave an answer is returned as a result.
-        /// </summary>
-        /// <param name="startAdress">First address to query.</param>
-        /// <param name="busAbstraction">bus to work on.</param>
-        /// <returns>List of valid addresses.</returns>
-        static public async Task<List<int>> ScanGaplessBusAsync(int startAdress, TransportAbstraction busAbstraction)
-        {
-            if (startAdress < 1 || startAdress > 127)
-            {
-                return new List<int>();
-            }
-
-            int address = startAdress;
-            List<int> result = new List<int>();
-
-            while (true)
-            {
-                Device dev = new Device(address, busAbstraction);
-                if (await dev.SendPingAsync() != ErrorCode.Success)
-                {
-                    break;
-                }
-                else
-                {
-                    result.Add(address);
-                    ++address;
-                }
-            }
-
-            return result;
-        }
-
 
         protected BusTransceiveResult Transceive(BusRequest request, int responseSize = 0)
         {
-            return TransceiveAsyncInternal(request, responseSize, sync: true).GetAwaiter().GetResult();
+            return Transceive(Address, request, responseSize);
         }
         protected Task<BusTransceiveResult> TransceiveAsync(BusRequest request, int responseSize = 0)
         {
-            return TransceiveAsyncInternal(request, responseSize, sync: false);
-        }
-        private async Task<BusTransceiveResult> TransceiveAsyncInternal(BusRequest request, int responseSize, bool sync)
-        {
-            int attempts = 3;
-            BusResponse response = new BusResponse(responseSize);
-            Types.ErrorCode transceiveStatus = Types.ErrorCode.TransportTransmissionError;
-
-            while (attempts > 0)
-            {
-                (ErrorCode, byte[]) result = sync ?
-                    BusAbstraction.Transceive(Address, request.GetByteArray(), responseSize) :
-                    await BusAbstraction.TransceiveAsync(Address, request.GetByteArray(), responseSize);
-
-
-                transceiveStatus = result.Item1;
-                byte[] receiveBuffer = result.Item2;
-
-                switch (transceiveStatus)
-                {
-                    case Types.ErrorCode.Success:
-                        response.Fill(receiveBuffer);
-                        ++successfulTransmissions;
-                        return new BusTransceiveResult(Types.ErrorCode.Success, response);
-
-                    case Types.ErrorCode.TransportChecksumError:
-                        ++checksumErrors;
-                        break;
-
-                    case Types.ErrorCode.TransportReceptionError:
-                        if (receiveBuffer.Length == 0)
-                        {
-                            ++noAnswer;
-                        }
-                        else
-                        {
-                            ++missingData;
-                        }
-                        break;
-
-                    case Types.ErrorCode.TransportTransmissionError:
-                        ++transmitErrors;
-                        break;
-                }
-
-                attempts--;
-            }
-
-            return new BusTransceiveResult(transceiveStatus, response);
+            return TransceiveAsync(Address, request, responseSize);
         }
 
 
-        protected ErrorCode SendBroadcast(BusBroadcast broadcast)
-        {
-            return SendBroadcastAsyncInternal(broadcast, sync: true).GetAwaiter().GetResult();
-        }
-        protected Task<ErrorCode> SendBroadcastAsync(BusBroadcast broadcast)
-        {
-            return SendBroadcastAsyncInternal(broadcast, sync: false);
-        }
-        private async Task<ErrorCode> SendBroadcastAsyncInternal(BusBroadcast broadcast, bool sync)
-        {
-            int attempts = 3;
-
-            while (attempts > 0)
-            {
-                ErrorCode result = sync ?
-                    BusAbstraction.Transmit(Address, broadcast.GetByteArray()) :
-                    await BusAbstraction.TransmitAsync(Address, broadcast.GetByteArray());
-
-                switch (result)
-                {
-                    case ErrorCode.Success:
-                        ++successfulTransmissions;
-                        return ErrorCode.Success;
-
-                    case ErrorCode.TransportTransmissionError:
-                        ++transmitErrors;
-                        break;
-                }
-
-                attempts--;
-            }
-
-            return ErrorCode.TransportTransmissionError;
-        }
-
-
-        /// <summary>
-        /// Returns the description of the supplied error code.
-        /// </summary>
-        /// <param name="error">Error code.</param>
-        /// <returns>String representing the given error code.</returns>
-        static public string ErrorString(ErrorCode error)
-        {
-            string name = error.ToString();
-            string description = error.GetAttributeOfType<DescriptionAttribute>().Description;
-            return name + ": " + description;
-        }
-
-
-        private uint successfulTransmissions = 0;
-        private uint checksumErrors = 0;
-        private uint noAnswer = 0;
-        private uint missingData = 0;
-        private uint transmitErrors = 0;
     }
 
-    internal static class EnumHelper
-    {
-        /// <summary>
-        /// Gets an attribute on an enum field value
-        /// </summary>
-        /// <typeparam name="T">The type of the attribute you want to retrieve</typeparam>
-        /// <param name="enumVal">The enum value</param>
-        /// <returns>The attribute of type T that exists on the enum value</returns>
-        /// <example><![CDATA[string desc = myEnumVariable.GetAttributeOfType<DescriptionAttribute>().Description;]]></example>
-        public static T GetAttributeOfType<T>(this Enum enumVal) where T : System.Attribute
-        {
-            var type = enumVal.GetType();
-            var memInfo = type.GetMember(enumVal.ToString());
-            var attributes = memInfo[0].GetCustomAttributes(typeof(T), false);
-            return (attributes.Length > 0) ? (T)attributes[0] : null;
-        }
-    }
 }

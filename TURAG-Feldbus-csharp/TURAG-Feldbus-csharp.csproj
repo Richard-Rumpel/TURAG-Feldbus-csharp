@@ -42,6 +42,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Devices\Aseb.cs" />
+    <Compile Include="Devices\BaseDevice.cs" />
+    <Compile Include="Devices\DeviceLocator.cs" />
     <Compile Include="Devices\Stellantrieb.cs" />
     <Compile Include="Transport\MemoryTransport.cs" />
     <Compile Include="Transport\TransportAbstraction.cs" />
