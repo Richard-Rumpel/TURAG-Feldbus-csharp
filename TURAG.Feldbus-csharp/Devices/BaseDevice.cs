@@ -158,6 +158,21 @@ namespace TURAG.Feldbus.Devices
             return name + ": " + description;
         }
 
+
+        /// <summary>
+        /// Returns a string representation of the given UUID in the form of XX-XX-XX-XX.
+        /// </summary>
+        /// <param name="uuid">UUID to format.</param>
+        /// <returns>Formatted string.</returns>
+        static public string FormatUuid(uint uuid)
+        {
+            return String.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}",
+                (uuid >> 24) & 0xFF,
+                (uuid >> 16) & 0xFF,
+                (uuid >> 8) & 0xFF,
+                uuid & 0xFF);
+        }
+
         private uint successfulTransmissions = 0;
         private uint checksumErrors = 0;
         private uint noAnswer = 0;

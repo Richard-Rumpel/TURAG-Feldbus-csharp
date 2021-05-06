@@ -10,7 +10,7 @@ namespace TURAG.Feldbus.Devices
 {
     /// <summary>
     /// </summary>
-    public abstract class DeviceLocator : BaseDevice
+    public class DeviceLocator : BaseDevice
     {
         /// <summary>
         /// Creates a new instance.
@@ -480,12 +480,14 @@ namespace TURAG.Feldbus.Devices
                 else
                 {
                     error = sync ? SetBusAddress(uuid, nextBusAddress) : await SetBusAddressAsync(uuid, nextBusAddress);
-                    ++nextBusAddress;
 
                     if (error != ErrorCode.Success)
                     {
                         return (error, devices, deviceOrderKnown);
                     }
+
+                    devices.Add(uuid);
+                    ++nextBusAddress;
                 }
 
 
