@@ -9,9 +9,13 @@ using TURAG.Feldbus.Types;
 namespace TURAG.Feldbus.Devices
 {
     /// <summary>
+    /// Abstract base class which implements mainly utility and transport functions for use in sub classes.
     /// </summary>
     public abstract class BaseDevice
     {
+        /// <summary>
+        /// Feldbus broadcast address.
+        /// </summary>
         public const int BroadcastAddress = 0x00;
 
 
@@ -42,14 +46,31 @@ namespace TURAG.Feldbus.Devices
         }
 
 
+        /// <summary>
+        /// Transmit a request to the given address and attempt to receive a response.
+        /// </summary>
+        /// <param name="address">Address to send the packet to.</param>
+        /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
+        /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <returns>An object containing an error code and the received data.</returns>
         protected BusTransceiveResult Transceive(int address, BusRequest request, int responseSize = 0)
         {
             return TransceiveAsyncInternal(address, request, responseSize, sync: true).GetAwaiter().GetResult();
         }
+
+        /// <summary>
+        /// Transmit a request to the given address and attempt to receive a response.
+        /// </summary>
+        /// <param name="address">Address to send the packet to.</param>
+        /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
+        /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an object containing an error code and the received data.</returns>
         protected Task<BusTransceiveResult> TransceiveAsync(int address, BusRequest request, int responseSize = 0)
         {
             return TransceiveAsyncInternal(address, request, responseSize, sync: false);
         }
+
         private async Task<BusTransceiveResult> TransceiveAsyncInternal(int address, BusRequest request, int responseSize, bool sync)
         {
             int attempts = 3;
@@ -100,24 +121,53 @@ namespace TURAG.Feldbus.Devices
         }
 
 
-        protected BusTransceiveResult TransceiveBroadcast(BusRequest request, int responseSize = 0)
+        /// <summary>
+        /// Transmit a broadcast and attempt to receive a response. This function is equivalent to calling
+        /// Transceive(), passing BroadcastAddress as the target address.
+        /// </summary>
+        /// <param name="broadcastRequest">Request containing the packet data, excluding address and checksum.</param>
+        /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <returns>An object containing an error code and the received data.</returns>
+        protected BusTransceiveResult TransceiveBroadcast(BusBroadcast broadcastRequest, int responseSize = 0)
         {
-            return TransceiveAsyncInternal(BroadcastAddress, request, responseSize, sync: true).GetAwaiter().GetResult();
+            return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, sync: true).GetAwaiter().GetResult();
         }
-        protected Task<BusTransceiveResult> TransceiveBroadcastAsync(BusRequest request, int responseSize = 0)
+
+        /// <summary>
+        /// Transmit a broadcast and attempt to receive a response. This function is equivalent to calling
+        /// TransceiveAsync(), passing BroadcastAddress as the target address.
+        /// </summary>
+        /// <param name="broadcastRequest">Request containing the packet data, excluding address and checksum.</param>
+        /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an object containing an error code and the received data.</returns>
+        protected Task<BusTransceiveResult> TransceiveBroadcastAsync(BusBroadcast broadcastRequest, int responseSize = 0)
         {
-            return TransceiveAsyncInternal(BroadcastAddress, request, responseSize, sync: false);
+            return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, sync: false);
         }
 
 
+        /// <summary>
+        /// Transmits a broadcast.
+        /// </summary>
+        /// <param name="broadcast">Broadcast containing the packet data, excluding address and checksum.</param>
+        /// <returns>Error code describing the result of the call.</returns>
         protected ErrorCode SendBroadcast(BusBroadcast broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: true).GetAwaiter().GetResult();
         }
+
+        /// <summary>
+        /// Transmits a broadcast.
+        /// </summary>
+        /// <param name="broadcast">Broadcast containing the packet data, excluding address and checksum.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
         protected Task<ErrorCode> SendBroadcastAsync(BusBroadcast broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: false);
         }
+
         private async Task<ErrorCode> SendBroadcastAsyncInternal(BusBroadcast broadcast, bool sync)
         {
             int attempts = 3;

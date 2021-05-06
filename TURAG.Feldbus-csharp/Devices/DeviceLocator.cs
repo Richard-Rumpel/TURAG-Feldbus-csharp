@@ -9,6 +9,7 @@ using TURAG.Feldbus.Types;
 namespace TURAG.Feldbus.Devices
 {
     /// <summary>
+    /// Helper class implementing functions for device discovery and enumeration.
     /// </summary>
     public class DeviceLocator : BaseDevice
     {
@@ -43,7 +44,11 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the UUID of the device which 
         /// responded to the request.</returns>
+#if __DOXYGEN__
+        public Task<Tuple<ErrorCode, uint>> SendBroadcastPingAsync()
+#else
         public Task<(ErrorCode, uint)> SendBroadcastPingAsync()
+#endif
         {
             return SendBroadcastPingAsyncInternal(sync: false);
         }
@@ -119,7 +124,11 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the bus address of the device 
         /// with the given UUID.</returns>
+#if __DOXYGEN__
+        public Task<Tuple<ErrorCode, int>> ReceiveBusAddressAsync(uint uuid)
+#else
         public Task<(ErrorCode, int)> ReceiveBusAddressAsync(uint uuid)
+#endif
         {
             return ReceiveBusAddressAsyncInternal(uuid, sync: false);
         }
@@ -323,7 +332,7 @@ namespace TURAG.Feldbus.Devices
         /// <param name="busAddresses">Returns the list of valid addresses.</param>
         /// <param name="firstAdress">First address to query.</param>
         /// <param name="lastAddress">Last address to query.</param>
-        /// <param name="stopOnMissingDevice"
+        /// <param name="stopOnMissingDevice">Specifies whether to stop the search on the first missing device.</param>
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode ScanBusAddresses(out IList<int> busAddresses, int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
         {
@@ -338,16 +347,20 @@ namespace TURAG.Feldbus.Devices
         /// </summary>
         /// <param name="firstAdress">First address to query.</param>
         /// <param name="lastAddress">Last address to query.</param>
-        /// <param name="stopOnMissingDevice"
+        /// <param name="stopOnMissingDevice">Specifies whether to stop the search on the first missing device.</param>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the 
         /// list of valid bus addresses.</returns>
+#if __DOXYGEN__
+        public Task<Tuple<ErrorCode, IList<int>>> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
+#else
         public Task<(ErrorCode, IList<int>)> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
+#endif
         {
             return ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: false);
         }
 
-        public async Task<(ErrorCode, IList<int>)> ScanBusAddressesAsyncInternal(int firstAdress, int lastAddress, bool stopOnMissingDevice, bool sync)
+        private async Task<(ErrorCode, IList<int>)> ScanBusAddressesAsyncInternal(int firstAdress, int lastAddress, bool stopOnMissingDevice, bool sync)
         {
             if (firstAdress < 1 || lastAddress > 127)
             {
@@ -400,7 +413,11 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the 
         /// list of detected UUIDs.</returns>
+#if __DOXYGEN__
+        public async Task<Tuple<ErrorCode, IList<uint>>> EnumerateDevicesSequentiallyAsync()
+#else
         public async Task<(ErrorCode, IList<uint>)> EnumerateDevicesSequentiallyAsync()
+#endif
         {
             (var error, var devices, _) = await EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: false);
             return (error, devices);
@@ -499,10 +516,5 @@ namespace TURAG.Feldbus.Devices
                 }
             }
         }
-
-
-
-
-
     }
 }

@@ -4,6 +4,9 @@ using TURAG.Feldbus.Types;
 
 namespace TURAG.Feldbus.Transport
 {
+    /// <summary>
+    /// Extended transport base class which gives more control over the transmission and reception process.
+    /// </summary>
     public abstract class TransportAbstractionExt : TransportAbstraction
     {
         /// <summary>

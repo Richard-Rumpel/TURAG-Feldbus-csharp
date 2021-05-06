@@ -5,6 +5,10 @@ using System.Threading.Tasks;
 
 namespace TURAG.Feldbus.Transport
 {
+    /// <summary>
+    /// %Transport which stores transmitted data into and consumes received data from a memory buffer.
+    /// This mechanism is useful when transmission and reception cannot be executed in a single step.
+    /// </summary>
     public class MemoryTransport : TransportAbstractionExt
     {
         public MemoryTransport()

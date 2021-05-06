@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 
 namespace TURAG.Feldbus.Transport
 {
+    /// <summary>
+    /// Serial port transport implementation.
+    /// </summary>
     public class SerialPortTransport : TransportAbstraction
     {
         public SerialPortTransport(string portName, int baudRate, int timeoutMs = 50) 

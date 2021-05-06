@@ -9,11 +9,8 @@ using TURAG.Feldbus.Types;
 namespace TURAG.Feldbus.Devices
 {
     /// <summary>
-    /// Base classes implementing the functionality common to all TURAG Feldbus devices.
+    /// Generic device implementing the basic protocol, which is supported by all %TURAG %Feldbus devices.
     /// This class can be used for device discovery and enumeration. 
-    /// 
-    /// A typical flow of operation could look like this:
-    /// - 
     /// </summary>
     public class Device : BaseDevice
     {
@@ -371,17 +368,27 @@ namespace TURAG.Feldbus.Devices
             }
         }
 
-
+        /// <summary>
+        /// Transmit a request to the device and attempt to receive a response.
+        /// </summary>
+        /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
+        /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <returns>An object containing an error code and the received data.</returns>
         protected BusTransceiveResult Transceive(BusRequest request, int responseSize = 0)
         {
             return Transceive(Address, request, responseSize);
         }
+
+        /// <summary>
+        /// Transmit a request to the device and attempt to receive a response.
+        /// </summary>
+        /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
+        /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an object containing an error code and the received data.</returns>
         protected Task<BusTransceiveResult> TransceiveAsync(BusRequest request, int responseSize = 0)
         {
             return TransceiveAsync(Address, request, responseSize);
         }
-
-
     }
-
 }

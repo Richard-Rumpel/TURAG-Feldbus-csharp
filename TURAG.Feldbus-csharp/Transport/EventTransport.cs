@@ -10,7 +10,7 @@ namespace TURAG.Feldbus.Transport
     /// execute the required transport mechanism and call the SetResult function to
     /// supply the result of the operation.
     /// 
-    /// This class is suitable to be used for integrating TURAG Feldbus device classes
+    /// This class is suitable to be used for integrating %TURAG %Feldbus device classes
     /// with LabView.
     /// 
     /// Async transport functions are currently not implemented. Consequently,

@@ -5,6 +5,9 @@ using TURAG.Feldbus.Util;
 
 namespace TURAG.Feldbus.Transport
 {
+    /// <summary>
+    /// Abstract base class for transport implementations.
+    /// </summary>
     public abstract class TransportAbstraction
     {
         /// <summary>
@@ -262,10 +265,19 @@ namespace TURAG.Feldbus.Transport
         }*/
 
 
-
+        /// <summary>
+        /// Total number of bytes transmitted using this transport.
+        /// </summary>
         public int TransmitCount { get; protected set; } = 0;
+
+        /// <summary>
+        /// Total number of bytes received using this transport.
+        /// </summary>
         public int ReceiveCount { get; protected set; } = 0;
 
+        /// <summary>
+        /// Resets the TransmitCount and ReceiveCount properties to zero.
+        /// </summary>
         public void ResetCounters()
         {
             TransmitCount = 0;
