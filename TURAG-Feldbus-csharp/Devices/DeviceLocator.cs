@@ -317,51 +317,185 @@ namespace TURAG.Feldbus.Devices
 
 
         /// <summary>
-        /// Attempts to scan the bus for devices and re-assigns the bus addresses from 1 to n.
-        /// It returns a list of uuids in the order of the assigned bus addresses and a flag
-        /// hinting whether the order of the queried ids could be verified.
-        /// </summary>
-        /// <returns></returns>
-        static public ErrorCode EnumerateDevices(out IList<uint> uuids, bool busOrderKnown)
-        {
-
-        }
-
-
-
-
-        /// <summary>
-        /// Pings devices on the bus, starting with a given address, until no response is received. 
+        /// Pings devices on the bus within the given range of bus addresses.
         /// The list of devices which gave an answer is returned as a result.
         /// </summary>
-        /// <param name="startAdress">First address to query.</param>
-        /// <param name="busAbstraction">bus to work on.</param>
-        /// <returns>List of valid addresses.</returns>
-        static public async Task<List<int>> ScanGaplessBusAsync(int startAdress, TransportAbstraction busAbstraction)
+        /// <param name="busAddresses">Returns the list of valid addresses.</param>
+        /// <param name="firstAdress">First address to query.</param>
+        /// <param name="lastAddress">Last address to query.</param>
+        /// <param name="stopOnMissingDevice"
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode ScanBusAddresses(out IList<int> busAddresses, int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
         {
-            if (startAdress < 1 || startAdress > 127)
+            (var error, var result) = ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: true).GetAwaiter().GetResult();
+            busAddresses = result;
+            return error;
+        }
+
+        /// <summary>
+        /// Pings devices on the bus within the given range of bus addresses.
+        /// The list of devices which gave an answer is returned as a result.
+        /// </summary>
+        /// <param name="firstAdress">First address to query.</param>
+        /// <param name="lastAddress">Last address to query.</param>
+        /// <param name="stopOnMissingDevice"
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call and the 
+        /// list of valid bus addresses.</returns>
+        public Task<(ErrorCode, IList<int>)> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
+        {
+            return ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: false);
+        }
+
+        public async Task<(ErrorCode, IList<int>)> ScanBusAddressesAsyncInternal(int firstAdress, int lastAddress, bool stopOnMissingDevice, bool sync)
+        {
+            if (firstAdress < 1 || lastAddress > 127)
             {
-                return new List<int>();
+                return (ErrorCode.InvalidArgument, new List<int>());
             }
 
-            int address = startAdress;
-            List<int> result = new List<int>();
+            int address = firstAdress;
+            List<int> addresses = new List<int>();
 
-            while (true)
+            while (address <= lastAddress)
             {
-                Device dev = new Device(address, busAbstraction);
-                if (await dev.SendPingAsync() != ErrorCode.Success)
+                Device dev = new Device(address, BusAbstraction);
+                var error = sync ? dev.SendPing() : await dev.SendPingAsync();
+
+                if (error == ErrorCode.Success)
+                {
+                    addresses.Add(address);
+                }
+                else if (stopOnMissingDevice)
                 {
                     break;
                 }
-                else
-                {
-                    result.Add(address);
-                    ++address;
-                }
+
+                ++address;
             }
 
-            return result;
+            return (ErrorCode.Success, addresses);
+        }
+
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function requires each node to be able to disconnect its neighbours from the bus, otherwise it will
+        /// fail. The returned list of UUIDs resembles the physical order of the devices in the bus.
+        /// </summary>
+        /// <param name="uuids">Returns the list of detected UUIDs.</param>
+        /// <returns>An error code describing the result of the call.</returns>
+        public ErrorCode EnumerateDevicesSequentially(out IList<uint> uuids)
+        {
+            (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: true).GetAwaiter().GetResult();
+            uuids = devices;
+            return error;
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function requires each node to be able to disconnect its neighbours from the bus, otherwise it will
+        /// fail. The returned list of UUIDs resembles the physical order of the devices in the bus.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call and the 
+        /// list of detected UUIDs.</returns>
+        public async Task<(ErrorCode, IList<uint>)> EnumerateDevicesSequentiallyAsync()
+        {
+            (var error, var devices, _) = await EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: false);
+            return (error, devices);
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list of UUIDs and a flag indicating
+        /// whether the returned list of UUIDs resembles the physical order of the devices in the bus. Depending on the parameter values
+        /// it will utilize only sequential search, only binary search or sequential search first and binary search as a fallback.
+        /// </summary>
+        /// <param name="useSequentialSearch">Indicates whether to use sequential search utilizing neighbour disabling for device discovery.</param>
+        /// <param name="useBinarySearch">Indicates whether to use binary UUID search for device discovery.</param>
+        /// <param name="sync"></param>
+        /// <returns></returns>
+        private async Task<(ErrorCode, IList<uint>, bool)> EnumerateBusNodesAsyncInternal(bool useSequentialSearch, bool useBinarySearch, bool sync)
+        {
+            if (!useSequentialSearch && !useBinarySearch)
+            {
+                return (ErrorCode.InvalidArgument, new List<uint>(), false);
+            }
+
+            // TODO: if useSequentialSearch == false, then
+            // directly return result of a binary only search function
+            //if (useSequentialSearch == false)
+            //{
+            //    return // todo
+            //}
+
+            // Thus we can assume here that useSequentialSearch == true
+            // and useBinarySearch is true or false
+
+            ErrorCode error;
+            var devices = new List<uint>();
+            bool deviceOrderKnown = true;
+
+            error = sync ? ResetAllBusAddresses() : await ResetAllBusAddressesAsync();
+            if (error != ErrorCode.Success)
+            {
+                return (error, new List<uint>(), false);
+            }
+
+            error = sync ? DisableBusNeighbours() : await DisableBusNeighboursAsync();
+            if (error != ErrorCode.Success)
+            {
+                return (error, new List<uint>(), false);
+            }
+
+            int nextBusAddress = 1;
+            uint uuid;
+
+            while (true)
+            {
+                if (sync)
+                {
+                    error = SendBroadcastPing(out uuid);
+                }
+                else
+                {
+                    (error, uuid) = await SendBroadcastPingAsync();
+                }
+
+                if (error != ErrorCode.Success)
+                {
+                    // if the broadcast ping fails it can mean that either there are no more devices
+                    // or more than one device tried to respond. If enabled, we fall back to binary search.
+                    // TODO
+                    //if (useBinarySearch)
+                    //{
+                    // here we also need to set deviceOrderKnown to false, if we found devices using the binary search.
+                    //}
+                    //else
+                    //{
+                    // otherwise return the current result
+                    return (ErrorCode.Success, devices, deviceOrderKnown);
+                    //}
+                }
+                else
+                {
+                    error = sync ? SetBusAddress(uuid, nextBusAddress) : await SetBusAddressAsync(uuid, nextBusAddress);
+                    ++nextBusAddress;
+
+                    if (error != ErrorCode.Success)
+                    {
+                        return (error, devices, deviceOrderKnown);
+                    }
+                }
+
+
+                error = sync ? EnableBusNeighbours() : await EnableBusNeighboursAsync();
+
+                if (error != ErrorCode.Success)
+                {
+                    return (error, devices, deviceOrderKnown);
+                }
+            }
         }
 
 

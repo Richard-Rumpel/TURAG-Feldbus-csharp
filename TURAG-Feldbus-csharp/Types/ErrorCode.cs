@@ -21,6 +21,12 @@ namespace TURAG.Feldbus.Types
         [Description("Unspecified Error")]
         Unspecified,
 
+        /// <summary>
+        /// Invalid argument.
+        /// </summary>
+        [Description("Invalid argument.")]
+        InvalidArgument,
+
 
         /// <summary>
         /// A checksum mismatch was detected in the received packet.
