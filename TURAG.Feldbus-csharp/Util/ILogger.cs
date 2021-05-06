@@ -1,4 +1,4 @@
-﻿namespace Fraunhofer.IKTS.EddyCurrent.EdCAL.Utils
+﻿namespace TURAG.Feldbus.Util
 {
     /// <summary>
     /// Interface for logging debug messages. Implementations

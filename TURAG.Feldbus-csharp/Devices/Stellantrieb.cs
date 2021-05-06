@@ -1,9 +1,9 @@
-﻿using Fraunhofer.IKTS.EddyCurrent.EdCAL.Utils;
-using System;
+﻿using System;
 using System.Text;
 using System.Threading.Tasks;
 using TURAG.Feldbus.Transport;
 using TURAG.Feldbus.Types;
+using TURAG.Feldbus.Util;
 
 namespace TURAG.Feldbus.Devices
 {
