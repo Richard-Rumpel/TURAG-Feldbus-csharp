@@ -1,70 +1,25 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{B1F059D9-D2E5-40A7-A96F-D1C392A03086}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>TURAG.Feldbus-csharp</AssemblyName>
     <RootNamespace>TURAG.Feldbus</RootNamespace>
-    <AssemblyName>TURAG-Feldbus-csharp</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <Deterministic>true</Deterministic>
+    <Authors>Martin Oemus</Authors>
+    <Version>0.0.1</Version>
+    <RepositoryUrl>https://github.com/turag-ev/TURAG-Feldbus-csharp</RepositoryUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Company>TURAG e.V.</Company>
+    <Copyright>2020-2021</Copyright>
+    <PackageProjectUrl>https://github.com/turag-ev/TURAG-Feldbus</PackageProjectUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
+    <PackageReference Include="Microsoft.Windows.Compatibility" Version="5.0.2" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Devices\Aseb.cs" />
-    <Compile Include="Devices\BaseDevice.cs" />
-    <Compile Include="Devices\DeviceLocator.cs" />
-    <Compile Include="Devices\Stellantrieb.cs" />
-    <Compile Include="Transport\MemoryTransport.cs" />
-    <Compile Include="Transport\TransportAbstraction.cs" />
-    <Compile Include="Types\BusBroadcast.cs" />
-    <Compile Include="Types\BusRequest.cs" />
-    <Compile Include="Types\BusResponse.cs" />
-    <Compile Include="Types\BusTransceiveResult.cs" />
-    <Compile Include="Types\ErrorCode.cs" />
-    <Compile Include="Transport\EventTransport.cs" />
-    <Compile Include="Transport\SerialPortTransport.cs" />
-    <Compile Include="Transport\TransportAbstractionExt.cs" />
-    <Compile Include="Types\DeviceInfo.cs" />
-    <Compile Include="Types\ExtendedDeviceInfo.cs" />
-    <Compile Include="Types\HostPacketStatistics.cs" />
-    <Compile Include="Types\DevicePacketStatistics.cs" />
-    <Compile Include="Util\AsyncLock.cs" />
-    <Compile Include="Util\Crc.cs" />
-    <Compile Include="Devices\Device.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Util\ILogger.cs" />
-    <Compile Include="Util\Log.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
 </Project>
