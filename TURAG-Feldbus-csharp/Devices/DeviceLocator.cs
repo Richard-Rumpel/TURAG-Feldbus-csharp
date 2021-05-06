@@ -12,34 +12,41 @@ namespace TURAG.Feldbus.Devices
     /// </summary>
     public abstract class DeviceLocator : BaseDevice
     {
-
         /// <summary>
         /// Creates a new instance.
         /// </summary>
         /// <param name="busAbstraction">Bus to work on.</param>
         public DeviceLocator(TransportAbstraction busAbstraction) : base(busAbstraction)
         {
-
         }
 
+
         /// <summary>
+        /// Pings any device which was not assigned a valid bus address. This function should only 
+        /// be called when it can be assumed that only one device is reachable on the bus, for instance
+        /// after calling ResetAllBusAddresses(). The device responds by returning its UUID.
         /// </summary>
+        /// <param name="uuid">Returns the UUID of the device which responded.</param>
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode SendBroadcastPing(out uint uuid)
         {
-            var result = SendBroadcastPingAsyncInternal(sync: true).GetAwaiter().GetResult();
-            uuid = result.Item2
+            ErrorCode errorCode;
+            (errorCode, uuid) = SendBroadcastPingAsyncInternal(sync: true).GetAwaiter().GetResult();
+            return errorCode;
         }
 
         /// <summary>
+        /// Pings any device which was not assigned a valid bus address. This function should only 
+        /// be called when it can be assumed that only one device is reachable on the bus, for instance
+        /// after calling ResetAllBusAddresses(). The device responds by returning its UUID.
         /// </summary>
         /// <returns>A task representing the asynchronous operation.
-        /// Contains an error code describing the result of the call.</returns>
+        /// Contains an error code describing the result of the call and the UUID of the device which 
+        /// responded to the request.</returns>
         public Task<(ErrorCode, uint)> SendBroadcastPingAsync()
         {
             return SendBroadcastPingAsyncInternal(sync: false);
         }
-
 
         private async Task<(ErrorCode, uint uuid)> SendBroadcastPingAsyncInternal(bool sync)
         {
@@ -47,31 +54,23 @@ namespace TURAG.Feldbus.Devices
             request.Write((byte)0x00);
             request.Write((byte)0x00);
 
-            return (await TransceiveBroadcastAsync(request, 4)).TransportError;
+            var result = sync ? TransceiveBroadcast(request, 4) : await TransceiveBroadcastAsync(request, 4);
 
-            if (Info == null)
+            if (result.Success)
             {
-                BusRequest request = new BusRequest();
-                request.Write((byte)0);  // device info command
-
-                BusTransceiveResult result = sync ? Transceive(request, 11) : await TransceiveAsync(request, 11);
-
-                if (result.Success)
-                {
-                    InternalDeviceInfo = new InternalDeviceInfoPacket(result.Response);
-                    Info = new DeviceInfo(InternalDeviceInfo);
-                }
-
-                return result.TransportError;
+                return (result.TransportError, result.Response.ReadUInt32());
             }
-
-            return ErrorCode.Success;
+            else
+            {
+                return (result.TransportError, 0);
+            }
         }
 
 
         /// <summary>
+        /// Pings the device with the given UUID.
         /// </summary>
-        /// <param name="uuid"></param>
+        /// <param name="uuid">UUID of the device to ping.</param>
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode SendUuidPing(uint uuid)
         {
@@ -84,8 +83,9 @@ namespace TURAG.Feldbus.Devices
         }
 
         /// <summary>
+        /// Pings the device with the given UUID.
         /// </summary>
-        /// <param name="uuid"></param> 
+        /// <param name="uuid">UUID of the device to ping.</param> 
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call.</returns>
         public async Task<ErrorCode> SendUuidPingAsync(uint uuid)
@@ -99,122 +99,221 @@ namespace TURAG.Feldbus.Devices
         }
 
 
-        /*
-         bool Device::receiveBusAddress(uint32_t uuid, unsigned* busAddress) {
-    struct Value {
-        uint8_t key;
-        uint32_t uuid;
-        uint8_t key2;
-    } _packed;
-
-    Broadcast<Value> request;
-
-    request.id = 0x00;
-    request.data.key = 0x00;
-    request.data.uuid = uuid;
-    request.data.key2 = 0x00;
-
-    Response<uint8_t> response;
-
-    if (!transceive(request, &response)) {
-        return false;
-    }
-
-    *busAddress = response.data;
-    return true;
-}
-
-bool Device::setBusAddress(uint32_t uuid, unsigned busAddress) {
-    struct Value {
-        uint8_t key;
-        uint32_t uuid;
-        uint8_t key2;
-        uint8_t busAddress;
-    } _packed;
-
-    struct Value2 {
-        uint8_t key;
-        uint32_t uuid;
-        uint8_t key2;
-        uint16_t busAddress;
-    } _packed;
-
-    if (myAddressLength == 1) {
-        Broadcast<Value> request;
-
-        request.id = 0x00;
-        request.data.key = 0x00;
-        request.data.uuid = uuid;
-        request.data.key2 = 0x00;
-        request.data.busAddress = busAddress & 0xFF;
-
-        Response<uint8_t> response;
-
-        if (!transceive(request, &response)) {
-            return false;
+        /// <summary>
+        /// Returns the bus address of the device with the given UUID.
+        /// </summary>
+        /// <param name="uuid">UUID of the addressed device.</param>
+        /// <param name="busAddress">Returns the bus address of the device with the given UUID.</param>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode ReceiveBusAddress(uint uuid, out int busAddress)
+        {
+            ErrorCode errorCode;
+            (errorCode, busAddress) = ReceiveBusAddressAsyncInternal(uuid, sync: true).GetAwaiter().GetResult();
+            return errorCode;
         }
 
-        return response.data == 1;
-    } else {
-        Broadcast<Value2> request;
-
-        request.id = 0x00;
-        request.data.key = 0x00;
-        request.data.uuid = uuid;
-        request.data.key2 = 0x00;
-        request.data.busAddress = busAddress & 0xFFFF;
-
-        Response<uint8_t> response;
-
-        if (!transceive(request, &response)) {
-            return false;
+        /// <summary>
+        /// Returns the bus address of the device with the given UUID.
+        /// </summary>
+        /// <param name="uuid">UUID of the addressed device.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call and the bus address of the device 
+        /// with the given UUID.</returns>
+        public Task<(ErrorCode, int)> ReceiveBusAddressAsync(uint uuid)
+        {
+            return ReceiveBusAddressAsyncInternal(uuid, sync: false);
         }
-        return response.data == 1;
-    }
-}
 
-bool Device::reseBusAddress(uint32_t uuid) {
-    struct Value {
-        uint8_t key;
-        uint32_t uuid;
-        uint8_t key2;
-    } _packed;
+        private async Task<(ErrorCode, int busAddress)> ReceiveBusAddressAsyncInternal(uint uuid, bool sync)
+        {
+            BusBroadcast request = new BusBroadcast();
+            request.Write((byte)0x00);
+            request.Write((byte)0x00);
+            request.Write(uuid);
+            request.Write((byte)0x00);
 
-    Broadcast<Value> request;
+            var result = sync ? TransceiveBroadcast(request, 1) : await TransceiveBroadcastAsync(request, 1);
 
-    request.id = 0x00;
-    request.data.key = 0x00;
-    request.data.uuid = uuid;
-    request.data.key2 = 0x01;
+            if (result.Success)
+            {
+                return (result.TransportError, result.Response.ReadByte());
+            }
+            else
+            {
+                return (result.TransportError, 0);
+            }
+        }
 
-    Response<> response;
 
-    return transceive(request, &response);
-}
+        /// <summary>
+        /// Sets the bus address of the device with the given UUID.
+        /// </summary>
+        /// <param name="uuid">UUID of the addressed device.</param>
+        /// <param name="busAddress">Bus address to assign to the specified device.</param>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode SetBusAddress(uint uuid, int busAddress)
+        {
+            return SetBusAddressAsyncInternal(uuid, busAddress, sync: true).GetAwaiter().GetResult();
+        }
 
-bool Device::enableBusNeighbors(void) {
-    Broadcast<uint8_t> request;
-    request.id = 0x00;
-    request.data = 0x01;
+        /// <summary>
+        /// Sets the bus address of the device with the given UUID.
+        /// </summary>
+        /// <param name="uuid">UUID of the addressed device.</param>
+        /// <param name="busAddress">Bus address to assign to the specified device.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> SetBusAddressAsync(uint uuid, int busAddress)
+        {
+            return SetBusAddressAsyncInternal(uuid, busAddress, sync: false);
+        }
 
-    return transceive(request);
-}
-bool Device::disableBusNeighbors(void) {
-    Broadcast<uint8_t> request;
-    request.id = 0x00;
-    request.data = 0x02;
+        private async Task<ErrorCode> SetBusAddressAsyncInternal(uint uuid, int busAddress, bool sync)
+        {
+            BusBroadcast request = new BusBroadcast();
+            request.Write((byte)0x00);
+            request.Write((byte)0x00);
+            request.Write(uuid);
+            request.Write((byte)0x00);
+            request.Write((byte)busAddress);
 
-    return transceive(request);
-}
+            var result = sync ? TransceiveBroadcast(request, 1) : await TransceiveBroadcastAsync(request, 1);
 
-bool Device::resetAllBusAddresses(void) {
-    Broadcast<uint8_t> request;
-    request.id = 0x00;
-    request.data = 0x03;
+            if (result.Success)
+            {
+                if (result.Response.ReadByte() == 1)
+                {
+                    return ErrorCode.Success;
+                }
+                else
+                {
+                    return ErrorCode.DeviceRejectedBusAddress;
+                }
+            }
+            else
+            {
+                return result.TransportError;
+            }
+        }
 
-    return transceive(request);
-}
-        */
+
+        /// <summary>
+        /// Resets the bus address of the specified device.
+        /// </summary>
+        /// <param name="uuid">UUID of the addressed device.</param>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode ResetBusAddress(uint uuid)
+        {
+            return ResetBusAddressAsyncInternal(uuid, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Sets the bus address of the device with the given UUID.
+        /// </summary>
+        /// <param name="uuid">UUID of the addressed device.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> ResetBusAddressAsync(uint uuid)
+        {
+            return ResetBusAddressAsyncInternal(uuid, sync: false);
+        }
+
+        private async Task<ErrorCode> ResetBusAddressAsyncInternal(uint uuid, bool sync)
+        {
+            BusBroadcast request = new BusBroadcast();
+            request.Write((byte)0x00);
+            request.Write((byte)0x00);
+            request.Write(uuid);
+            request.Write((byte)0x01);
+
+            var result = sync ? TransceiveBroadcast(request, 0) : await TransceiveBroadcastAsync(request, 0);
+
+            return result.TransportError;
+        }
+
+
+        /// <summary>
+        /// Enable bus neighbours of available devices.
+        /// </summary>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode EnableBusNeighbours()
+        {
+            BusBroadcast broadcast = new BusBroadcast();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x01);
+
+            return SendBroadcast(broadcast);
+        }
+
+        /// <summary>
+        /// Enable bus neighbours of available devices.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> EnableBusNeighboursAsync()
+        {
+            BusBroadcast broadcast = new BusBroadcast();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x01);
+
+            return SendBroadcastAsync(broadcast);
+        }
+
+
+        /// <summary>
+        /// Disable bus neighbours of available devices.
+        /// </summary>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode DisableBusNeighbours()
+        {
+            BusBroadcast broadcast = new BusBroadcast();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x02);
+
+            return SendBroadcast(broadcast);
+        }
+
+        /// <summary>
+        /// Disable bus neighbours of available devices.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> DisableBusNeighboursAsync()
+        {
+            BusBroadcast broadcast = new BusBroadcast();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x02);
+
+            return SendBroadcastAsync(broadcast);
+        }
+
+
+        /// <summary>
+        /// Resets the bus address of all available devices.
+        /// </summary>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode ResetAllBusAddresses()
+        {
+            BusBroadcast broadcast = new BusBroadcast();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x03);
+
+            return SendBroadcast(broadcast);
+        }
+
+        /// <summary>
+        /// Resets the bus address of all available devices.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> ResetAllBusAddressesAsync()
+        {
+            BusBroadcast broadcast = new BusBroadcast();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x03);
+
+            return SendBroadcastAsync(broadcast);
+        }
 
 
         /// <summary>
@@ -226,12 +325,6 @@ bool Device::resetAllBusAddresses(void) {
         static public ErrorCode EnumerateDevices(out IList<uint> uuids, bool busOrderKnown)
         {
 
-        }
-
-        static private BusBroadcast ActivateBus(bool enable)
-        {
-            var broadcast = new BusBroadcast();
-            broadcast.Write
         }
 
 

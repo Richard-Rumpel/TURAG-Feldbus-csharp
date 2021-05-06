@@ -59,6 +59,12 @@ namespace TURAG.Feldbus.Types
         [Description("This device does not support querying its uptime.")]
         DeviceUptimeNotSupported,
 
+        /// <summary>
+        /// The device did not accept to set the given bus address.
+        /// </summary>
+        [Description("The device did not accept to set the given bus address.")]
+        DeviceRejectedBusAddress,
+
 
         /// <summary>
         /// The given key is invalid for this Stellantrieb device.

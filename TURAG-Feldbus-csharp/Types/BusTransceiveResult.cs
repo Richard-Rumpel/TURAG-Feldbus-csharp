@@ -8,8 +8,6 @@
             this.Response = response;
         }
 
-        public ErrorCode TransportError { get; }
-
         public bool Success
         {
             get
@@ -17,6 +15,8 @@
                 return TransportError == ErrorCode.Success;
             }
         }
+
+        public ErrorCode TransportError { get; }
 
         public BusResponse Response { get; }
     }
