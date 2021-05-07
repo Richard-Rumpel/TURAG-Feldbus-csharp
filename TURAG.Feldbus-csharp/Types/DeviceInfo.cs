@@ -5,14 +5,14 @@
     /// </summary>
     public class DeviceInfo
     {
-        internal DeviceInfo(InternalDeviceInfoPacket info)
+        internal DeviceInfo(int deviceProtocolId, int deviceTypeId, int crcType, bool statisticsAvailable, uint uuid, int uptimeFrequency)
         {
-            DeviceProtocolId = info.DeviceProtocolId;
-            DeviceTypeId = info.DeviceTypeId;
-            CrcType = info.CrcType;
-            StatisticsAvailable = info.StatisticsAvailable;
-            BufferSize = info.BufferSize;
-            UptimeFrequency = info.UptimeFrequency;
+            DeviceProtocolId = deviceProtocolId;
+            DeviceTypeId = deviceTypeId;
+            CrcType = crcType;
+            StatisticsAvailable = statisticsAvailable;
+            Uuid = uuid;
+            UptimeFrequency = uptimeFrequency;
         }
 
         /// <summary>
@@ -38,10 +38,9 @@
         public bool StatisticsAvailable { get; }
 
         /// <summary>
-        /// Buffer size of the device, defining boundaries on the maximum packet size it can
-        /// process.
+        /// UUID of the device.
         /// </summary>
-        public int BufferSize { get; }
+        public uint Uuid { get; }
 
         /// <summary>
         /// Frequency of the uptime counter of the device.
@@ -67,23 +66,53 @@
         {
             DeviceProtocolId = response.ReadByte();
             DeviceTypeId = response.ReadByte();
-            int dummy = response.ReadByte();
-            CrcType = dummy & 0x07;
-            StatisticsAvailable = (dummy & 0x80) != 0 ? true : false;
-            BufferSize = response.ReadUInt16();
-            response.ReadUInt16(); // reserved bytes
-            NameLength = response.ReadByte();
-            VersionInfoLength = response.ReadByte();
+            int dataByte = response.ReadByte();
+            LegacyTypePacket = (dataByte & 0x08) != 0 ? false : true;
+            CrcType = dataByte & 0x07;
+            StatisticsAvailable = (dataByte & 0x80) != 0 ? true : false;
+
+            if (LegacyTypePacket)
+            {
+                BufferSize = response.ReadUInt16();
+                response.ReadUInt16(); // reserved bytes
+                NameLength = response.ReadByte();
+                VersionInfoLength = response.ReadByte();
+            }
+            else
+            {
+                ExtendedDeviceInfoLength = response.ReadUInt16();
+                Uuid = response.ReadUInt32();
+            }
+
             UptimeFrequency = response.ReadUInt16();
         }
 
         public int DeviceProtocolId { get; }
+
         public int DeviceTypeId { get; }
+
         public int CrcType { get; }
+
         public bool StatisticsAvailable { get; }
-        public int BufferSize { get; }
-        public int NameLength { get; }
-        public int VersionInfoLength { get; }
+
+        public bool LegacyTypePacket { get; }
+
         public int UptimeFrequency { get; }
+
+
+        // only for legacy packet
+
+        public int BufferSize { get; }
+
+        public int NameLength { get; }
+
+        public int VersionInfoLength { get; }
+
+
+        // only for newer packet
+
+        public uint Uuid { get; }
+
+        public int ExtendedDeviceInfoLength { get; }
     }
 }

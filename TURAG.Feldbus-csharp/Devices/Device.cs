@@ -159,7 +159,39 @@ namespace TURAG.Feldbus.Devices
                 if (result.Success)
                 {
                     InternalDeviceInfo = new InternalDeviceInfoPacket(result.Response);
-                    Info = new DeviceInfo(InternalDeviceInfo);
+
+                    if (InternalDeviceInfo.LegacyTypePacket)
+                    {
+                        // legacy packets do not contain the uuid, so we have to request it 
+                        // separately. For backwards compatibility we fail silently though.
+                        // Unfortunately, have no real way of indicating that the UUID is unknown.
+                        // 0000-0000 should look suspicious enough anyway.
+                        request = new BusRequest();
+                        request.Write((byte)0);  // get uuid command
+                        request.Write((byte)9); 
+                        result = sync ? Transceive(request, 4) : await TransceiveAsync(request, 4);
+
+                        uint uuid = result.Success ? result.Response.ReadUInt32() : 0;
+
+                        Info = new DeviceInfo(
+                            InternalDeviceInfo.DeviceProtocolId,
+                            InternalDeviceInfo.DeviceTypeId,
+                            InternalDeviceInfo.CrcType,
+                            InternalDeviceInfo.StatisticsAvailable,
+                            uuid,
+                            InternalDeviceInfo.UptimeFrequency);
+                    }
+                    else
+                    {
+                        Info = new DeviceInfo(
+                            InternalDeviceInfo.DeviceProtocolId,
+                            InternalDeviceInfo.DeviceTypeId,
+                            InternalDeviceInfo.CrcType,
+                            InternalDeviceInfo.StatisticsAvailable,
+                            InternalDeviceInfo.Uuid,
+                            InternalDeviceInfo.UptimeFrequency);
+                    }
+                    return ErrorCode.Success;
                 }
 
                 return result.TransportError;
@@ -199,23 +231,53 @@ namespace TURAG.Feldbus.Devices
                     return deviceInfoError;
                 }
 
-                (ErrorCode nameError, string deviceName) = sync ?
-                    RetrieveString(CommandKey.GetDeviceName, InternalDeviceInfo.NameLength) :
-                    await RetrieveStringAsync(CommandKey.GetDeviceName, InternalDeviceInfo.NameLength);
-                if (nameError != ErrorCode.Success)
+                if (InternalDeviceInfo.LegacyTypePacket)
                 {
-                    return nameError;
-                }
+                    (ErrorCode nameError, string deviceName) = sync ?
+                        RetrieveString(CommandKey.GetDeviceName, InternalDeviceInfo.NameLength) :
+                        await RetrieveStringAsync(CommandKey.GetDeviceName, InternalDeviceInfo.NameLength);
+                    if (nameError != ErrorCode.Success)
+                    {
+                        return nameError;
+                    }
 
-                (ErrorCode versioninfoError, string versionInfo) = sync ?
-                    RetrieveString(CommandKey.GetVersioninfo, InternalDeviceInfo.VersionInfoLength) :
-                    await RetrieveStringAsync(CommandKey.GetVersioninfo, InternalDeviceInfo.VersionInfoLength);
-                if (versioninfoError != ErrorCode.Success)
+                    (ErrorCode versioninfoError, string versionInfo) = sync ?
+                        RetrieveString(CommandKey.GetVersioninfo, InternalDeviceInfo.VersionInfoLength) :
+                        await RetrieveStringAsync(CommandKey.GetVersioninfo, InternalDeviceInfo.VersionInfoLength);
+                    if (versioninfoError != ErrorCode.Success)
+                    {
+                        return versioninfoError;
+                    }
+
+                    ExtendedInfo = new ExtendedDeviceInfo(deviceName, versionInfo, InternalDeviceInfo.BufferSize);
+                }
+                else
                 {
-                    return versioninfoError;
-                }
+                    BusRequest request = new BusRequest();
+                    request.Write((byte)0x00);  // extended device info command
+                    request.Write((byte)0x0A);  
 
-                ExtendedInfo = new ExtendedDeviceInfo(deviceName, versionInfo);
+                    BusTransceiveResult result = sync ? 
+                        Transceive(request, InternalDeviceInfo.ExtendedDeviceInfoLength) : 
+                        await TransceiveAsync(request, InternalDeviceInfo.ExtendedDeviceInfoLength);
+                    if (!result.Success)
+                    {
+                        return result.TransportError;
+                    }
+
+                    result.Response.ReadByte();
+                    int nameLength = result.Response.ReadByte();
+                    int versionLength = result.Response.ReadByte();
+                    int bufferSize = result.Response.ReadUInt16();
+
+                    var deviceName = result.Response.ReadBytes(nameLength);
+                    var versionInfo = result.Response.ReadBytes(versionLength);
+
+                    ExtendedInfo = new ExtendedDeviceInfo(
+                        Encoding.UTF8.GetString(deviceName), 
+                        Encoding.UTF8.GetString(versionInfo), 
+                        bufferSize);
+                }
             }
 
             return ErrorCode.Success;

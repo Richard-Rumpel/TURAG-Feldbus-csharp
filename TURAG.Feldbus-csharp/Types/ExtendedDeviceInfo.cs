@@ -11,10 +11,11 @@ namespace TURAG.Feldbus.Types
     /// </summary>
     public class ExtendedDeviceInfo
     {
-        internal ExtendedDeviceInfo(string deviceName, string versionInfo)
+        internal ExtendedDeviceInfo(string deviceName, string versionInfo, int bufferSize)
         {
             DeviceName = deviceName;
             VersionInfo = versionInfo;
+            BufferSize = bufferSize;
         }
 
         /// <summary>
@@ -26,5 +27,11 @@ namespace TURAG.Feldbus.Types
         /// Version information of the device firmware.
         /// </summary>
         public string VersionInfo { get; }
+
+        /// <summary>
+        /// Buffer size of the device, defining boundaries on the maximum packet size it can
+        /// process.
+        /// </summary>
+        public int BufferSize { get; }
     }
 }
