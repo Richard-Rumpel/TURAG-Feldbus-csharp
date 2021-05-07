@@ -7,11 +7,12 @@
     {
         internal DeviceInfo(InternalDeviceInfoPacket info)
         {
-            UptimeFrequency = info.UptimeFrequency;
-            BufferSize = info.BufferSize;
             DeviceProtocolId = info.DeviceProtocolId;
+            DeviceTypeId = info.DeviceTypeId;
             CrcType = info.CrcType;
             StatisticsAvailable = info.StatisticsAvailable;
+            BufferSize = info.BufferSize;
+            UptimeFrequency = info.UptimeFrequency;
         }
 
         /// <summary>
