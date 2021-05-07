@@ -6,6 +6,8 @@ namespace TURAG.Feldbus.Transport
 {
     /// <summary>
     /// Extended transport base class which gives more control over the transmission and reception process.
+    /// Sub classes are reqired to behave according to the currently set Mode when overriding DoTransmit() and 
+    /// DoTransceive().
     /// </summary>
     public abstract class TransportAbstractionExt : TransportAbstraction
     {
@@ -33,15 +35,30 @@ namespace TURAG.Feldbus.Transport
         };
 
 
+        /// <summary>
+        /// Creates a new instance.
+        /// </summary>
+        /// <param name="mode">Transmission mode to use.</param>
         public TransportAbstractionExt(TransmissionMode mode = TransmissionMode.Normal)
         {
             this.Mode = mode;
         }
 
+        /// <summary>
+        /// Defines whether this transport only sends or receives data or behaves normally, meaning it does both.
+        /// </summary>
         public TransmissionMode Mode { get; set; }
 
 
-#if ! __DOXYGEN__
+#if !__DOXYGEN__
+        /// <summary>
+        /// Transceives data.
+        /// </summary>
+        /// <param name="address">Target address.</param>
+        /// <param name="transmitData">Transmit data exckuding address and achecksum.</param>
+        /// <param name="requestedBytes">Expected return size, excluding checksum and address.</param>
+        /// <param name="sync"></param>
+        /// <returns>Received data, excluding address and checksum.</returns>
         private protected override async Task<(ErrorCode, byte[])> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
         {
             switch (Mode)
@@ -53,9 +70,9 @@ namespace TURAG.Feldbus.Transport
                     {
                         byte[] transmitBuffer = AddAddressAndChecksum(transmitData, address);
 
-                        bool success = sync ?
-                            DoTransmit(transmitBuffer) :
-                            await DoTransmitAsync(transmitBuffer);
+                        (bool success, var _) = sync ?
+                            DoTransceive(transmitBuffer, requestedBytes + 2) :
+                            await DoTransceiveAsync(transmitBuffer, requestedBytes + 2);
 
                         if (!success)
                         {
@@ -70,17 +87,16 @@ namespace TURAG.Feldbus.Transport
 
                 case TransmissionMode.ReceiveOnly:
                     {
+                        (bool transceiveSuccess, byte[] receiveBuffer) = sync ?
+                            DoTransceive(null, requestedBytes + 2) :
+                            await DoTransceiveAsync(null, requestedBytes + 2);
+
+                        // assume transmission to be successful
                         TransmitCount += transmitData.Length + 2;
-
-                        (bool receiptionSuccessful, byte[] receiveBuffer) = sync ?
-                            DoReceive(requestedBytes + 2) :
-                            await DoReceiveAsync(requestedBytes + 2);
-
-                        if (!receiptionSuccessful)
+                        if (!transceiveSuccess)
                         {
                             return (ErrorCode.TransportReceptionError, new byte[0]);
                         }
-
                         ReceiveCount += receiveBuffer.Length;
 
                         var (crcCorrect, receivedData) = CheckCrcAndExtractData(receiveBuffer);
@@ -107,31 +123,6 @@ namespace TURAG.Feldbus.Transport
                 return base.TransmitAsyncInternal(address, transmitData, sync);
             }
         }
-#endif
-
-        /// <summary>
-        /// Blockingly receive specified amount of data or
-        /// all currently available data.
-        /// </summary>
-        /// <param name="bytesRequested">Number of bytes to receive.</param>
-        /// <returns>True on success, false otherwise.</returns>
-#if __DOXYGEN__
-        protected abstract Tuple<bool, byte[]> DoReceive(int bytesRequested);
-#else
-        protected abstract (bool, byte[]) DoReceive(int bytesRequested);
-#endif
-
-        /// <summary>
-        /// Receive specified amount of data or
-        /// all currently available data.
-        /// </summary>
-        /// <param name="bytesRequested">Number of bytes to receive.</param>
-        /// <returns>A task representing the asynchronous operation. Contains 
-        /// true on usccess, false otherwise.</returns>
-#if __DOXYGEN__
-        protected abstract Task<Tuple<bool, byte[]>> DoReceiveAsync(int bytesRequested);
-#else
-        protected abstract Task<(bool, byte[])> DoReceiveAsync(int bytesRequested);
 #endif
     }
 }

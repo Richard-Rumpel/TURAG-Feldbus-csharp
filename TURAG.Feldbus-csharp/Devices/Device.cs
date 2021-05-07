@@ -370,6 +370,7 @@ namespace TURAG.Feldbus.Devices
 
         /// <summary>
         /// Transmit a request to the device and attempt to receive a response.
+        /// Use this function to implement higher-level communication functions in sub classes.
         /// </summary>
         /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
@@ -381,6 +382,7 @@ namespace TURAG.Feldbus.Devices
 
         /// <summary>
         /// Transmit a request to the device and attempt to receive a response.
+        /// Use this function to implement higher-level communication functions in sub classes.
         /// </summary>
         /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>

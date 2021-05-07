@@ -11,11 +11,11 @@ namespace TURAG.Feldbus.Transport
     public abstract class TransportAbstraction
     {
         /// <summary>
-        /// Calculates time required to transport data on the bus.
+        /// Calculates the time generally required to transport data on the bus in one direction. 
         /// </summary>
-        /// <param name="byteCount"></param>
-        /// <param name="baudrate"></param>
-        /// <returns></returns>
+        /// <param name="byteCount">Number of bytes to transmit.</param>
+        /// <param name="baudrate">Baudrate used in the bus.</param>
+        /// <returns>Required time to transmit the data in seconds.</returns>
         public static double DataDuration(int byteCount, int baudrate)
         {
             // 10 symbols per byte
@@ -23,30 +23,40 @@ namespace TURAG.Feldbus.Transport
         }
 
         /// <summary>
-        /// Calculates time until a device received and processed a broadcast.
+        /// Caculates the time needed for a device to detect the end of a packet.
         /// </summary>
-        /// <param name="dataSize"></param>
-        /// <param name="processingTime"></param>
-        /// <param name="baudrate"></param>
-        /// <returns></returns>
-        public static double BroadcastDuration(int dataSize, double processingTime, int baudrate)
+        /// <param name="baudrate">Baudrate used in the bus.</param>
+        /// <returns>Required time to detect the end of a packet in seconds.</returns>
+        public static double PacketDetectionTimeout(int baudrate)
         {
-            // data + packet delimiter + processing time
-            return DataDuration(dataSize, baudrate) + 15.0 / baudrate + processingTime;
+            return 15.0 / baudrate;
         }
 
         /// <summary>
-        /// Calculates time until a device received, processed and answered a packet.
+        /// Calculates the time required until a device received and processed a broadcast.
         /// </summary>
-        /// <param name="requestSize"></param>
-        /// <param name="responseSize"></param>
-        /// <param name="processingTime"></param>
-        /// <param name="baudrate"></param>
-        /// <returns></returns>
+        /// <param name="dataSize">Number of bytes to transmit.</param>
+        /// <param name="processingTime">Expected processing time of the device for this broadcast.</param>
+        /// <param name="baudrate">Baudrate used in the bus.</param>
+        /// <returns>Sum of time required to send the data and process the broadcast in the device.</returns>
+        public static double BroadcastDuration(int dataSize, double processingTime, int baudrate)
+        {
+            // data + packet delimiter + processing time
+            return DataDuration(dataSize, baudrate) + PacketDetectionTimeout(baudrate) + processingTime;
+        }
+
+        /// <summary>
+        /// Calculates the time required until a device received, processed and answered a packet.
+        /// </summary>
+        /// <param name="requestSize">Number of bytes to transmit.</param>
+        /// <param name="responseSize">Number of bytes to receive.</param>
+        /// <param name="processingTime">Expected processing time of the device for this packet.</param>
+        /// <param name="baudrate">Baudrate used in the bus.</param>
+        /// <returns>Sum of time required to send the data, process it in the device and return the response.</returns>
         public static double PacketDuration(int requestSize, int responseSize, double processingTime, int baudrate)
         {
             // request + packet delimiter + processing time + response
-            return DataDuration(requestSize, baudrate) + 15.0 / baudrate + processingTime + DataDuration(responseSize, baudrate);
+            return DataDuration(requestSize, baudrate) + PacketDetectionTimeout(baudrate) + processingTime + DataDuration(responseSize, baudrate);
         }
 
 
@@ -89,6 +99,14 @@ namespace TURAG.Feldbus.Transport
 
 
 #if !__DOXYGEN__
+        /// <summary>
+        /// Transceives data.
+        /// </summary>
+        /// <param name="address">Target address.</param>
+        /// <param name="transmitData">Transmit data exckuding address and achecksum.</param>
+        /// <param name="requestedBytes">Expected return size, excluding checksum and address.</param>
+        /// <param name="sync"></param>
+        /// <returns>Received data, excluding address and checksum.</returns>
         private protected virtual async Task<(ErrorCode, byte[])> TransceiveAsyncInternal(int address, byte[] transmitData, int requestedBytes, bool sync)
         {
             // clear buffer of any old data
@@ -127,21 +145,9 @@ namespace TURAG.Feldbus.Transport
 
         private protected virtual async Task<ErrorCode> TransmitAsyncInternal(int address, byte[] transmitData, bool sync)
         {
-            byte[] transmitBuffer = new byte[transmitData.Length + 2];
-            Array.Copy(transmitData, 0, transmitBuffer, 1, transmitData.Length);
+            byte[] transmitBuffer = AddAddressAndChecksum(transmitData, address);
 
-            transmitBuffer[0] = (byte)address;
-            transmitBuffer[transmitBuffer.Length - 1] = CRC8.Calculate(transmitBuffer, 0, transmitBuffer.Length - 1);
-
-            bool success;
-            if (sync)
-            {
-                success = DoTransmit(transmitBuffer);
-            }
-            else
-            {
-                success = await DoTransmitAsync(transmitBuffer);
-            }
+            bool success = sync ? DoTransmit(transmitBuffer) : await DoTransmitAsync(transmitBuffer);
 
             if (!success)
             {
@@ -198,14 +204,14 @@ namespace TURAG.Feldbus.Transport
         /// <summary>
         /// Transmits the given data on the transport channel.
         /// </summary>
-        /// <param name="data">Data to transmit.</param>
+        /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
         /// <returns>True if transmission was successful, false otherwise.</returns>
         protected abstract bool DoTransmit(byte[] data);
 
         /// <summary>
         /// Asynchronously transmits the given data on the transport channel.
         /// </summary>
-        /// <param name="data">Data to transmit.</param>
+        /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
         /// <returns>A task representing the asynchronous operation. Contains 
         /// true if transmission was successful, false otherwise.</returns>
         protected abstract Task<bool> DoTransmitAsync(byte[] data);
@@ -213,8 +219,8 @@ namespace TURAG.Feldbus.Transport
         /// <summary>
         /// Transmits to and afterwards receives data from the transport channel.
         /// </summary>
-        /// <param name="data">Data to transmit.</param>
-        /// <param name="bytesRequested">Number of bytes to receive.</param>
+        /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
+        /// <param name="bytesRequested">Number of raw bytes to receive (including address and checksum).</param>
         /// <returns>True if transmission was successful and the requested number
         /// of bytes were received, false otherwise.</returns>
 #if __DOXYGEN__
@@ -226,8 +232,8 @@ namespace TURAG.Feldbus.Transport
         /// <summary>
         /// Asynchronously transmits to and afterwards receives data from the transport channel.
         /// </summary>
-        /// <param name="data">Data to transmit.</param>
-        /// <param name="bytesRequested">Number of bytes to receive.</param>
+        /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
+        /// <param name="bytesRequested">Number of raw bytes to receive (including address and checksum).</param>
         /// <returns>A task representing the asynchronous operation. Contains 
         /// true if transmission was successful and the requested number
         /// of bytes were received, false otherwise.</returns>

@@ -55,7 +55,7 @@ namespace TURAG.Feldbus.Devices
 
         private async Task<(ErrorCode, uint uuid)> SendBroadcastPingAsyncInternal(bool sync)
         {
-            BusBroadcast request = new BusBroadcast();
+            var request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x00);
 
@@ -79,7 +79,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode SendUuidPing(uint uuid)
         {
-            BusBroadcast request = new BusBroadcast();
+            var request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x00);
             request.Write(uuid);
@@ -95,7 +95,7 @@ namespace TURAG.Feldbus.Devices
         /// Contains an error code describing the result of the call.</returns>
         public async Task<ErrorCode> SendUuidPingAsync(uint uuid)
         {
-            BusBroadcast request = new BusBroadcast();
+            var request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x00);
             request.Write(uuid);
@@ -135,7 +135,7 @@ namespace TURAG.Feldbus.Devices
 
         private async Task<(ErrorCode, int busAddress)> ReceiveBusAddressAsyncInternal(uint uuid, bool sync)
         {
-            BusBroadcast request = new BusBroadcast();
+            var request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x00);
             request.Write(uuid);
@@ -179,7 +179,7 @@ namespace TURAG.Feldbus.Devices
 
         private async Task<ErrorCode> SetBusAddressAsyncInternal(uint uuid, int busAddress, bool sync)
         {
-            BusBroadcast request = new BusBroadcast();
+            var request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x00);
             request.Write(uuid);
@@ -229,7 +229,7 @@ namespace TURAG.Feldbus.Devices
 
         private async Task<ErrorCode> ResetBusAddressAsyncInternal(uint uuid, bool sync)
         {
-            BusBroadcast request = new BusBroadcast();
+            var request = new BusRequest();
             request.Write((byte)0x00);
             request.Write((byte)0x00);
             request.Write(uuid);
@@ -247,7 +247,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode EnableBusNeighbours()
         {
-            BusBroadcast broadcast = new BusBroadcast();
+            var broadcast = new BusRequest();
             broadcast.Write((byte)0x00);
             broadcast.Write((byte)0x01);
 
@@ -261,7 +261,7 @@ namespace TURAG.Feldbus.Devices
         /// Contains an error code describing the result of the call.</returns>
         public Task<ErrorCode> EnableBusNeighboursAsync()
         {
-            BusBroadcast broadcast = new BusBroadcast();
+            var broadcast = new BusRequest();
             broadcast.Write((byte)0x00);
             broadcast.Write((byte)0x01);
 
@@ -275,7 +275,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode DisableBusNeighbours()
         {
-            BusBroadcast broadcast = new BusBroadcast();
+            var broadcast = new BusRequest();
             broadcast.Write((byte)0x00);
             broadcast.Write((byte)0x02);
 
@@ -289,7 +289,7 @@ namespace TURAG.Feldbus.Devices
         /// Contains an error code describing the result of the call.</returns>
         public Task<ErrorCode> DisableBusNeighboursAsync()
         {
-            BusBroadcast broadcast = new BusBroadcast();
+            var broadcast = new BusRequest();
             broadcast.Write((byte)0x00);
             broadcast.Write((byte)0x02);
 
@@ -303,7 +303,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode ResetAllBusAddresses()
         {
-            BusBroadcast broadcast = new BusBroadcast();
+            var broadcast = new BusRequest();
             broadcast.Write((byte)0x00);
             broadcast.Write((byte)0x03);
 
@@ -317,7 +317,7 @@ namespace TURAG.Feldbus.Devices
         /// Contains an error code describing the result of the call.</returns>
         public Task<ErrorCode> ResetAllBusAddressesAsync()
         {
-            BusBroadcast broadcast = new BusBroadcast();
+            var broadcast = new BusRequest();
             broadcast.Write((byte)0x00);
             broadcast.Write((byte)0x03);
 

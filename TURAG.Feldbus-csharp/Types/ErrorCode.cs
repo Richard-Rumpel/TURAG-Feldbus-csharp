@@ -90,4 +90,20 @@ namespace TURAG.Feldbus.Types
         [Description("The value for the given key cannot be written.")]
         StellantriebValueReadOnly,
     }
+
+    /// <summary>
+    /// Extension class for ErrorCode enumeration.
+    /// </summary>
+    public static class ErrorCodeExt
+    {
+        /// <summary>
+        /// Bool conversion for ErrorCode enumeration.
+        /// </summary>
+        /// <param name="error">Implicit extension method parameter.</param>
+        /// <returns>True if error equals ErrorCode.Success, false otherwise.</returns>
+        public static bool Success(this ErrorCode error)
+        {
+            return error == ErrorCode.Success;
+        }
+    }
 }

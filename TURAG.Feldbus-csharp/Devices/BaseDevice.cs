@@ -128,7 +128,7 @@ namespace TURAG.Feldbus.Devices
         /// <param name="broadcastRequest">Request containing the packet data, excluding address and checksum.</param>
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
         /// <returns>An object containing an error code and the received data.</returns>
-        protected BusTransceiveResult TransceiveBroadcast(BusBroadcast broadcastRequest, int responseSize = 0)
+        protected BusTransceiveResult TransceiveBroadcast(BusRequest broadcastRequest, int responseSize = 0)
         {
             return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, sync: true).GetAwaiter().GetResult();
         }
@@ -141,7 +141,7 @@ namespace TURAG.Feldbus.Devices
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an object containing an error code and the received data.</returns>
-        protected Task<BusTransceiveResult> TransceiveBroadcastAsync(BusBroadcast broadcastRequest, int responseSize = 0)
+        protected Task<BusTransceiveResult> TransceiveBroadcastAsync(BusRequest broadcastRequest, int responseSize = 0)
         {
             return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, sync: false);
         }
@@ -152,7 +152,7 @@ namespace TURAG.Feldbus.Devices
         /// </summary>
         /// <param name="broadcast">Broadcast containing the packet data, excluding address and checksum.</param>
         /// <returns>Error code describing the result of the call.</returns>
-        protected ErrorCode SendBroadcast(BusBroadcast broadcast)
+        protected ErrorCode SendBroadcast(BusRequest broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: true).GetAwaiter().GetResult();
         }
@@ -163,12 +163,12 @@ namespace TURAG.Feldbus.Devices
         /// <param name="broadcast">Broadcast containing the packet data, excluding address and checksum.</param>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call.</returns>
-        protected Task<ErrorCode> SendBroadcastAsync(BusBroadcast broadcast)
+        protected Task<ErrorCode> SendBroadcastAsync(BusRequest broadcast)
         {
             return SendBroadcastAsyncInternal(broadcast, sync: false);
         }
 
-        private async Task<ErrorCode> SendBroadcastAsyncInternal(BusBroadcast broadcast, bool sync)
+        private async Task<ErrorCode> SendBroadcastAsyncInternal(BusRequest broadcast, bool sync)
         {
             int attempts = 3;
 
