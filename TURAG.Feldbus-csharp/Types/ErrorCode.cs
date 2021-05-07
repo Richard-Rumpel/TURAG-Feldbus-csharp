@@ -27,6 +27,12 @@ namespace TURAG.Feldbus.Types
         [Description("Invalid argument.")]
         InvalidArgument,
 
+        /// <summary>
+        /// The device does not support the requested operation.
+        /// </summary>
+        [Description("Unsupported operation.")]
+        NotSupported,
+
 
         /// <summary>
         /// A checksum mismatch was detected in the received packet.
