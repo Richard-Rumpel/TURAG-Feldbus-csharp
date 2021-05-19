@@ -4,7 +4,7 @@ using System.Text;
 
 namespace TURAG
 {
-
+#if __DOXYGEN__
     /// <summary>
     /// The root namespace of the %TURAG %Feldbus library.
     /// </summary>
@@ -33,4 +33,5 @@ namespace TURAG
 
         }
     }
+#endif
 }
