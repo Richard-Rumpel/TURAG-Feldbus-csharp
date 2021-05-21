@@ -61,10 +61,6 @@ namespace TURAG.Feldbus.Transport
 
 
 
-        public TransportAbstraction()
-        {
-        }
-
         internal (ErrorCode, byte[]) Transceive(int address, byte[] transmitData, int requestedBytes)
         {
             using (busLock.Lock())
@@ -158,7 +154,6 @@ namespace TURAG.Feldbus.Transport
 
             return ErrorCode.Success;
         }
-#endif
 
         /// <summary>
         /// Puts the address in the front and the correct checksum at the end of the supplied
@@ -167,7 +162,7 @@ namespace TURAG.Feldbus.Transport
         /// <param name="data">Data array.</param>
         /// <param name="address">Target device address.</param>
         /// <returns>Complete data frame.</returns>
-        protected byte[] AddAddressAndChecksum(byte[] data, int address)
+        private protected byte[] AddAddressAndChecksum(byte[] data, int address)
         {
             byte[] transmitBuffer = new byte[data.Length + 2];
             Array.Copy(data, 0, transmitBuffer, 1, data.Length);
@@ -183,12 +178,7 @@ namespace TURAG.Feldbus.Transport
         /// </summary>
         /// <param name="receiveBuffer">Receive buffer.</param>
         /// <returns>Tuple containing the crc status and the data array.</returns>
-#if __DOXYGEN__
-        protected Tuple<bool, byte[]> CheckCrcAndExtractData(byte[] receiveBuffer)
-#else
-        protected (bool, byte[]) CheckCrcAndExtractData(byte[] receiveBuffer)
-#endif
-
+        private protected (bool, byte[]) CheckCrcAndExtractData(byte[] receiveBuffer)
         {
             if (!CRC8.Check(receiveBuffer, 0, receiveBuffer.Length - 1, receiveBuffer[receiveBuffer.Length - 1]))
             {
@@ -199,6 +189,7 @@ namespace TURAG.Feldbus.Transport
             Array.Copy(receiveBuffer, 1, receiveBytes, 0, receiveBytes.Length);
             return (true, receiveBytes);
         }
+#endif
 
 
         /// <summary>

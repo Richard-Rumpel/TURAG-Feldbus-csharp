@@ -39,7 +39,7 @@ namespace TURAG.Feldbus.Transport
         /// <summary>
         /// Event which is raised when the device class requires
         /// data transmission without reception. In the context of
-        /// the function which handles this event, SetTransceiveResult() 
+        /// the function which handles this event, SetTransmitResult() 
         /// has to be called.
         /// </summary>
         public event TransmitRequestHandler TransmitRequested;
@@ -89,7 +89,7 @@ namespace TURAG.Feldbus.Transport
         /// <summary>
         /// Sets the result of a clear buffer operation. This function has to be called
         /// in the context of the event handler processing a ClearBufferRequested event,
-        /// after the data in th einput buffer was actually cleared.
+        /// after the data in the input buffer was actually cleared.
         /// </summary>
         /// <param name="clearBufferSuccessful">True, if the input buffer was 
         /// successfully cleared, false otherwise.</param>
@@ -99,6 +99,15 @@ namespace TURAG.Feldbus.Transport
         }
 
 
+        /// <summary>
+        /// Transmits to and afterwards receives data from the transport channel.
+        /// This implementation causes the TransceiveRequested event to be fired and returns
+        /// the data which was set with the SetTransceiveResult() function.
+        /// </summary>
+        /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
+        /// <param name="bytesRequested">Number of raw bytes to receive (including address and checksum).</param>
+        /// <returns>True if transmission was successful and the requested number
+        /// of bytes were received, false otherwise.</returns>
 #if __DOXYGEN__
         protected override Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested)
 #else
@@ -117,6 +126,12 @@ namespace TURAG.Feldbus.Transport
             return transceiveResult;
         }
 
+        /// <summary>
+        /// Async transceive. Not supported for this transport. 
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="bytesRequested"></param>
+        /// <returns></returns>
 #if __DOXYGEN__
         protected override Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested)
 #else
@@ -126,6 +141,13 @@ namespace TURAG.Feldbus.Transport
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Transmits the given data on the transport channel.
+        /// This implementation causes the TransmitRequested event to be fired and returns
+        /// the data which was set with the SetTransmitResult() function.
+        /// </summary>
+        /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
+        /// <returns>True if transmission was successful, false otherwise.</returns>
         protected override bool DoTransmit(byte[] data)
         {
             // reset the exchange variable
@@ -149,6 +171,12 @@ namespace TURAG.Feldbus.Transport
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Clears the input buffer of the transport channel.
+        /// This implementation causes the ClearBufferRequested event to be fired and returns
+        /// the result which was set with the SetClearBufferResult() function.
+        /// </summary>
+        /// <returns>True if the buffer was successfully cleared, false otherwise.</returns>
         protected override bool DoClearBuffer()
         {
             // reset the exchange variable

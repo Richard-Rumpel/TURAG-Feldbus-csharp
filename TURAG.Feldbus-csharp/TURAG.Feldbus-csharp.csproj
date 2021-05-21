@@ -6,7 +6,7 @@
     <AssemblyName>TURAG.Feldbus-csharp</AssemblyName>
     <RootNamespace>TURAG.Feldbus</RootNamespace>
     <Authors>Martin Oemus</Authors>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
     <RepositoryUrl>https://github.com/turag-ev/TURAG-Feldbus-csharp</RepositoryUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <Company>TURAG e.V.</Company>
