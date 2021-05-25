@@ -41,10 +41,16 @@ namespace TURAG.Feldbus.Types
         TransportChecksumError,
 
         /// <summary>
-        /// An error occured when receiving the response.
+        /// The received response was shorter then expected.
         /// </summary>
-        [Description("An error occured when receiving the response.")]
-        TransportReceptionError,
+        [Description("The received response was shorter then expected.")]
+        TransportReceptionMissingDataError,
+
+        /// <summary>
+        /// No data was received.
+        /// </summary>
+        [Description("No data was received.")]
+        TransportReceptionNoAnswerError,
 
         /// <summary>
         /// An error occured when sending the request/broadcast.
@@ -77,6 +83,12 @@ namespace TURAG.Feldbus.Types
         [Description("The device did not accept to set the given bus address.")]
         DeviceRejectedBusAddress,
 
+        /// <summary>
+        /// No device did assert the bus in response to a RequestBusAssertion broadcast.
+        /// </summary>
+        [Description("No device did assert the bus in response to a RequestBusAssertion broadcast.")]
+        NoAssertionDetected,
+
 
         /// <summary>
         /// The given key is invalid for this Stellantrieb device.
@@ -100,7 +112,11 @@ namespace TURAG.Feldbus.Types
     /// <summary>
     /// Extension class for ErrorCode enumeration.
     /// </summary>
+#if __DOXYGEN__
+    public class ErrorCodeExt
+#else
     public static class ErrorCodeExt
+#endif
     {
         /// <summary>
         /// Bool conversion for ErrorCode enumeration.

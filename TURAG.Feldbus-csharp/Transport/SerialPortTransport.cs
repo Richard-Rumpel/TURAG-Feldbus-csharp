@@ -7,16 +7,21 @@ namespace TURAG.Feldbus.Transport
     /// <summary>
     /// Serial port transport implementation.
     /// </summary>
-    public class SerialPortTransport : TransportAbstraction
+    public class SerialPortTransport : PhysicalUartTransport
     {
-        public SerialPortTransport(string portName, int baudRate, int timeoutMs = 50) 
+        readonly SerialPort serialPort;
+        int baudrate;
+
+        public SerialPortTransport(string portName, int baudrate_, int timeoutMs = 50, double deviceProcessingTime = 1e-3) :
+            base(baudrate_, deviceProcessingTime)
         {
             TimeoutMs = timeoutMs;
+            baudrate = baudrate_;
 
             serialPort = new SerialPort
             {
                 PortName = portName,
-                BaudRate = baudRate,
+                BaudRate = baudrate,
                 Parity = Parity.None,
                 DataBits = 8,
                 StopBits = StopBits.One,
@@ -28,6 +33,18 @@ namespace TURAG.Feldbus.Transport
             };
 
             serialPort.Open();
+        }
+
+        public override int Baudrate
+        {
+            get => baudrate;
+            set
+            {
+                if (Baudrate != 0 && value != baudrate)
+                {
+                    throw new NotImplementedException();
+                }
+            }
         }
 
         public int TimeoutMs { get; set; }
@@ -74,7 +91,9 @@ namespace TURAG.Feldbus.Transport
             {
             }
 
-            return (bytesReadTotal == bytesRequested, received);
+            byte[] receiveResult = new byte[bytesReadTotal];
+            Array.Copy(received, receiveResult, bytesReadTotal);
+            return (bytesReadTotal == bytesRequested, receiveResult);
         }
 
 #if __DOXYGEN__
@@ -109,7 +128,9 @@ namespace TURAG.Feldbus.Transport
                 }
             }
 
-            return (bytesReadTotal == bytesRequested, received);
+            byte[] receiveResult = new byte[bytesReadTotal];
+            Array.Copy(received, receiveResult, bytesReadTotal);
+            return (bytesReadTotal == bytesRequested, receiveResult);
         }
 
         protected override bool DoTransmit(byte[] data)
@@ -138,6 +159,5 @@ namespace TURAG.Feldbus.Transport
             return true;
         }
 
-        private readonly SerialPort serialPort;
     }
 }

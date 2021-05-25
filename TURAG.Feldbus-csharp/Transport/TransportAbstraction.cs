@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using TURAG.Feldbus.Types;
 using TURAG.Feldbus.Util;
@@ -10,57 +12,6 @@ namespace TURAG.Feldbus.Transport
     /// </summary>
     public abstract class TransportAbstraction
     {
-        /// <summary>
-        /// Calculates the time generally required to transport data on the bus in one direction. 
-        /// </summary>
-        /// <param name="byteCount">Number of bytes to transmit.</param>
-        /// <param name="baudrate">Baudrate used in the bus.</param>
-        /// <returns>Required time to transmit the data in seconds.</returns>
-        public static double DataDuration(int byteCount, int baudrate)
-        {
-            // 10 symbols per byte
-            return (double)byteCount * 10 / baudrate;
-        }
-
-        /// <summary>
-        /// Caculates the time needed for a device to detect the end of a packet.
-        /// </summary>
-        /// <param name="baudrate">Baudrate used in the bus.</param>
-        /// <returns>Required time to detect the end of a packet in seconds.</returns>
-        public static double PacketDetectionTimeout(int baudrate)
-        {
-            return 15.0 / baudrate;
-        }
-
-        /// <summary>
-        /// Calculates the time required until a device received and processed a broadcast.
-        /// </summary>
-        /// <param name="dataSize">Number of bytes to transmit.</param>
-        /// <param name="processingTime">Expected processing time of the device for this broadcast.</param>
-        /// <param name="baudrate">Baudrate used in the bus.</param>
-        /// <returns>Sum of time required to send the data and process the broadcast in the device.</returns>
-        public static double BroadcastDuration(int dataSize, double processingTime, int baudrate)
-        {
-            // data + packet delimiter + processing time
-            return DataDuration(dataSize, baudrate) + PacketDetectionTimeout(baudrate) + processingTime;
-        }
-
-        /// <summary>
-        /// Calculates the time required until a device received, processed and answered a packet.
-        /// </summary>
-        /// <param name="requestSize">Number of bytes to transmit.</param>
-        /// <param name="responseSize">Number of bytes to receive.</param>
-        /// <param name="processingTime">Expected processing time of the device for this packet.</param>
-        /// <param name="baudrate">Baudrate used in the bus.</param>
-        /// <returns>Sum of time required to send the data, process it in the device and return the response.</returns>
-        public static double PacketDuration(int requestSize, int responseSize, double processingTime, int baudrate)
-        {
-            // request + packet delimiter + processing time + response
-            return DataDuration(requestSize, baudrate) + PacketDetectionTimeout(baudrate) + processingTime + DataDuration(responseSize, baudrate);
-        }
-
-
-
         internal (ErrorCode, byte[]) Transceive(int address, byte[] transmitData, int requestedBytes)
         {
             using (busLock.Lock())
@@ -99,7 +50,7 @@ namespace TURAG.Feldbus.Transport
         /// Transceives data.
         /// </summary>
         /// <param name="address">Target address.</param>
-        /// <param name="transmitData">Transmit data exckuding address and achecksum.</param>
+        /// <param name="transmitData">Transmit data excluding address and achecksum.</param>
         /// <param name="requestedBytes">Expected return size, excluding checksum and address.</param>
         /// <param name="sync"></param>
         /// <returns>Received data, excluding address and checksum.</returns>
@@ -115,7 +66,6 @@ namespace TURAG.Feldbus.Transport
                 await DoClearBufferAsync();
             }
 
-
             byte[] transmitBuffer = AddAddressAndChecksum(transmitData, address);
             (bool transceiveSuccess, byte[] receiveBuffer) = sync ?
                 DoTransceive(transmitBuffer, requestedBytes + 2) :
@@ -123,17 +73,25 @@ namespace TURAG.Feldbus.Transport
 
             // assume transmission to be successful
             TransmitCount += transmitBuffer.Length;
+            ReceiveCount += receiveBuffer.Length;
+
             if (!transceiveSuccess)
             {
-                return (ErrorCode.TransportReceptionError, new byte[0]);
+                if (receiveBuffer.Length == 0)
+                {
+                    return (ErrorCode.TransportReceptionNoAnswerError, receiveBuffer);
+                }
+                else
+                {
+                    return (ErrorCode.TransportReceptionMissingDataError, receiveBuffer);
+                }
             }
-            ReceiveCount += receiveBuffer.Length;
 
             var (crcCorrect, receivedData) = CheckCrcAndExtractData(receiveBuffer);
 
             if (!crcCorrect)
             {
-                return (ErrorCode.TransportChecksumError, new byte[0]);
+                return (ErrorCode.TransportChecksumError, receiveBuffer);
             }
 
             return (ErrorCode.Success, receivedData);

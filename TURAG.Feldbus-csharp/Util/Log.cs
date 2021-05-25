@@ -5,7 +5,11 @@
     /// to communicate debug messages. By default no log sink is set
     /// and no messages are emitted.
     /// </summary>
+#if __DOXYGEN__
+    public class Log
+#else
     public static class Log
+#endif
     {
         /// <summary>
         /// Sets the log sink.

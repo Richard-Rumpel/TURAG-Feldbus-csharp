@@ -93,17 +93,25 @@ namespace TURAG.Feldbus.Transport
 
                         // assume transmission to be successful
                         TransmitCount += transmitData.Length + 2;
+                        ReceiveCount += receiveBuffer.Length;
+
                         if (!transceiveSuccess)
                         {
-                            return (ErrorCode.TransportReceptionError, new byte[0]);
+                            if (receiveBuffer.Length == 0)
+                            {
+                                return (ErrorCode.TransportReceptionNoAnswerError, receiveBuffer);
+                            }
+                            else
+                            {
+                                return (ErrorCode.TransportReceptionMissingDataError, receiveBuffer);
+                            }
                         }
-                        ReceiveCount += receiveBuffer.Length;
 
                         var (crcCorrect, receivedData) = CheckCrcAndExtractData(receiveBuffer);
 
                         if (!crcCorrect)
                         {
-                            return (ErrorCode.TransportChecksumError, new byte[0]);
+                            return (ErrorCode.TransportChecksumError, receiveBuffer);
                         }
 
                         return (ErrorCode.Success, receivedData);

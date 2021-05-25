@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using TURAG.Feldbus.Transport;
@@ -17,6 +18,12 @@ namespace TURAG.Feldbus.Devices
         /// Feldbus broadcast address.
         /// </summary>
         public const int BroadcastAddress = 0x00;
+
+        /// <summary>
+        /// Number of unsuccessful transceive attempts before an error code
+        /// is returned.
+        /// </summary>
+        public const int DefaultAttempts = 3;
 
 
         /// <summary>
@@ -52,10 +59,12 @@ namespace TURAG.Feldbus.Devices
         /// <param name="address">Address to send the packet to.</param>
         /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <param name="attempts">Number of unsuccessful transceive attempts before an error code
+        /// is returned.</param>
         /// <returns>An object containing an error code and the received data.</returns>
-        protected BusTransceiveResult Transceive(int address, BusRequest request, int responseSize = 0)
+        protected BusTransceiveResult Transceive(int address, BusRequest request, int responseSize = 0, int attempts = DefaultAttempts)
         {
-            return TransceiveAsyncInternal(address, request, responseSize, sync: true).GetAwaiter().GetResult();
+            return TransceiveAsyncInternal(address, request, responseSize, attempts, sync: true).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -64,33 +73,36 @@ namespace TURAG.Feldbus.Devices
         /// <param name="address">Address to send the packet to.</param>
         /// <param name="request">Request containing the packet data, excluding address and checksum.</param>
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <param name="attempts">Number of unsuccessful transceive attempts before an error code
+        /// is returned.</param>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an object containing an error code and the received data.</returns>
-        protected Task<BusTransceiveResult> TransceiveAsync(int address, BusRequest request, int responseSize = 0)
+        protected Task<BusTransceiveResult> TransceiveAsync(int address, BusRequest request, int responseSize = 0, int attempts = DefaultAttempts)
         {
-            return TransceiveAsyncInternal(address, request, responseSize, sync: false);
+            return TransceiveAsyncInternal(address, request, responseSize, attempts, sync: false);
         }
 
-        private async Task<BusTransceiveResult> TransceiveAsyncInternal(int address, BusRequest request, int responseSize, bool sync)
+        private async Task<BusTransceiveResult> TransceiveAsyncInternal(int address, BusRequest request, int responseSize, int attempts, bool sync)
         {
-            int attempts = 3;
             BusResponse response = new BusResponse(responseSize);
             Types.ErrorCode transceiveStatus = Types.ErrorCode.TransportTransmissionError;
 
             while (attempts > 0)
             {
+
                 (ErrorCode, byte[]) result = sync ?
                     BusAbstraction.Transceive(address, request.GetByteArray(), responseSize) :
                     await BusAbstraction.TransceiveAsync(address, request.GetByteArray(), responseSize);
 
-
                 transceiveStatus = result.Item1;
                 byte[] receiveBuffer = result.Item2;
+
+                response = new BusResponse(responseSize);
+                response.Fill(receiveBuffer);
 
                 switch (transceiveStatus)
                 {
                     case Types.ErrorCode.Success:
-                        response.Fill(receiveBuffer);
                         ++successfulTransmissions;
                         return new BusTransceiveResult(Types.ErrorCode.Success, response);
 
@@ -98,15 +110,12 @@ namespace TURAG.Feldbus.Devices
                         ++checksumErrors;
                         break;
 
-                    case Types.ErrorCode.TransportReceptionError:
-                        if (receiveBuffer.Length == 0)
-                        {
-                            ++noAnswer;
-                        }
-                        else
-                        {
-                            ++missingData;
-                        }
+                    case Types.ErrorCode.TransportReceptionNoAnswerError:
+                        ++noAnswer;
+                        break;
+
+                    case Types.ErrorCode.TransportReceptionMissingDataError:
+                        ++missingData;
                         break;
 
                     case Types.ErrorCode.TransportTransmissionError:
@@ -127,10 +136,12 @@ namespace TURAG.Feldbus.Devices
         /// </summary>
         /// <param name="broadcastRequest">Request containing the packet data, excluding address and checksum.</param>
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <param name="attempts">Number of unsuccessful transceive attempts before an error code
+        /// is returned.</param>
         /// <returns>An object containing an error code and the received data.</returns>
-        protected BusTransceiveResult TransceiveBroadcast(BusRequest broadcastRequest, int responseSize = 0)
+        protected BusTransceiveResult TransceiveBroadcast(BusRequest broadcastRequest, int responseSize, int attempts = DefaultAttempts)
         {
-            return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, sync: true).GetAwaiter().GetResult();
+            return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, attempts, sync: true).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -139,11 +150,13 @@ namespace TURAG.Feldbus.Devices
         /// </summary>
         /// <param name="broadcastRequest">Request containing the packet data, excluding address and checksum.</param>
         /// <param name="responseSize">Expected response data size, not counting address and checksum.</param>
+        /// <param name="attempts">Number of unsuccessful transceive attempts before an error code
+        /// is returned.</param>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an object containing an error code and the received data.</returns>
-        protected Task<BusTransceiveResult> TransceiveBroadcastAsync(BusRequest broadcastRequest, int responseSize = 0)
+        protected Task<BusTransceiveResult> TransceiveBroadcastAsync(BusRequest broadcastRequest, int responseSize, int attempts = DefaultAttempts)
         {
-            return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, sync: false);
+            return TransceiveAsyncInternal(BroadcastAddress, broadcastRequest, responseSize, attempts, sync: false);
         }
 
 

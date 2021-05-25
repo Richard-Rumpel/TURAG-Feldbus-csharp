@@ -32,6 +32,14 @@ namespace TURAG
         {
 
         }
+
+        /// <summary>
+        /// Contains different utility classes.
+        /// </summary>
+        namespace Util
+        {
+
+        }
     }
 #endif
 }
