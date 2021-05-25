@@ -9,7 +9,7 @@ using TURAG.Feldbus.Types;
 namespace TURAG.Feldbus.Devices
 {
     /// <summary>
-    /// Helper class implementing functions for device discovery and enumeration.
+    /// Helper class implementing functions for device discovery, enumeration and other broadcasts of the basic protocol.
     /// </summary>
     public class DeviceLocator : BaseDevice
     {
@@ -17,8 +17,39 @@ namespace TURAG.Feldbus.Devices
         /// Creates a new instance.
         /// </summary>
         /// <param name="busAbstraction">Bus to work on.</param>
-        public DeviceLocator(TransportAbstraction busAbstraction) : base(busAbstraction)
+        /// <param name="binarySearchDelayTime">Minimum time to wait before requesting the next bus assertion 
+        /// when performing binary bus searches.
+        /// Choose this delay according to the processing time of the bus devices.</param>
+        public DeviceLocator(TransportAbstraction busAbstraction, double binarySearchDelayTime = 5e-3) : base(busAbstraction)
         {
+            BinarySearchDelayTime = binarySearchDelayTime;
+        }
+
+        private double BinarySearchDelayTime { get; }
+
+        /// <summary>
+        /// Sends a broadcast to all devices which does nothing, but can be used to wake up devices which were put
+        /// to sleep with GoToSleep.
+        /// </summary>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode SendNopBroadcast()
+        {
+            var request = new BusRequest();
+            request.Write((byte)0x00);
+            return SendBroadcast(request);
+        }
+
+        /// <summary>
+        /// Sends a broadcast to all devices which does nothing, but can be used to wake up devices which were put
+        /// to sleep with GoToSleep.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> SendNopBroadcastAsync()
+        {
+            var request = new BusRequest();
+            request.Write((byte)0x00);
+            return SendBroadcastAsync(request);
         }
 
 
@@ -326,6 +357,134 @@ namespace TURAG.Feldbus.Devices
 
 
         /// <summary>
+        /// Requests all devices to generate a bit mask with the given length, 
+        /// perform a bitwise-and between the mask and its UUID and perform a 
+        /// bus assertion if the result matches the given search address.
+        /// </summary>
+        /// <param name="searchmaskLength">Length of search mask, value range: 0-32</param>
+        /// <param name="searchAddress">Search address.</param>
+        /// <param name="onlyDevicesWithoutAddress">If true, then the
+        ///  RequestBusAssertion​IfNoAddress broadcast is used to address only devices which do not
+        ///  have a valid bus address.</param>
+        /// <returns>Error code describing the result of the call. If any device signaled
+        /// its presence by asserting the bus, ErrorCode.Success is returned, if no assertion took place,
+        /// ErrorCode.NoAssertionDetected is returned. Otherwise the appropriate error code is
+        /// returned.</returns>
+        public ErrorCode RequestBusAssertion(int searchmaskLength, uint searchAddress, bool onlyDevicesWithoutAddress = false)
+        {
+            return RequestBusAssertionAsyncInternal(searchmaskLength, searchAddress, onlyDevicesWithoutAddress, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Requests all devices to generate a bit mask with the given length, 
+        /// perform a bitwise-and between the mask and its UUID and perform a 
+        /// bus assertion if the result matches the given search address.
+        /// </summary>
+        /// <param name="searchmaskLength">Length of search mask, value range: 0-32</param>
+        /// <param name="searchAddress">Search address.</param>
+        /// <param name="onlyDevicesWithoutAddress">If true, then the
+        ///  RequestBusAssertion​IfNoAddress broadcast is used to address only devices which do not
+        ///  have a valid bus address.</param>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call. If any device signaled
+        /// its presence by asserting the bus, ErrorCode.Success is returned, if no assertion took place,
+        /// ErrorCode.NoAssertionDetected is returned. Otherwise the appropriate error code is
+        /// returned.</returns>
+        public Task<ErrorCode> RequestBusAssertionAsync(int searchmaskLength, uint searchAddress, bool onlyDevicesWithoutAddress = false)
+        {
+            return RequestBusAssertionAsyncInternal(searchmaskLength, searchAddress, onlyDevicesWithoutAddress, sync: false);
+        }
+
+        private async Task<ErrorCode> RequestBusAssertionAsyncInternal(int searchmaskLength, uint searchAddress, bool onlyDevicesWithoutAddress, bool sync)
+        {
+            if (searchmaskLength < 0 || searchmaskLength > 32)
+            {
+                return ErrorCode.InvalidArgument;
+            }
+
+            var request = new BusRequest();
+            request.Write((byte)0x00);
+            if (onlyDevicesWithoutAddress)
+            {
+                request.Write((byte)0x05);
+            }
+            else
+            {
+                request.Write((byte)0x04);
+            }
+            request.Write((byte)searchmaskLength);
+
+            int searchAddressLength = 0;
+            if (searchAddress >= (1 << 24))
+            {
+                searchAddressLength = 4;
+            } 
+            else if (searchAddress >= (1 << 16))
+            {
+                searchAddressLength = 3;
+            }
+            else if (searchAddress >= (1 << 8))
+            {
+                searchAddressLength = 2;
+            }
+            else if (searchAddress >= (1 << 0))
+            {
+                searchAddressLength = 1;
+            }
+
+            for (int i = 0; i < searchAddressLength; ++i)
+            {
+                request.Write((byte)(searchAddress >> (i * 8)));
+            }
+
+            // Console.WriteLine("search mask length " + searchmaskLength + " search address " + BaseDevice.FormatUuid(searchAddress));
+
+            var result = sync ? TransceiveBroadcast(request, 0, attempts: 1) : await TransceiveBroadcastAsync(request, 0, attempts: 1);
+
+            switch (result.TransportError)
+            {
+                case ErrorCode.Success:
+                case ErrorCode.TransportReceptionMissingDataError:
+                case ErrorCode.TransportChecksumError:
+                    return ErrorCode.Success;
+
+                case ErrorCode.TransportReceptionNoAnswerError:
+                    return ErrorCode.NoAssertionDetected;
+            }
+
+            return result.TransportError;
+        }
+
+
+        /// <summary>
+        /// Requests all available devices to enter a powerdown mode.
+        /// </summary>
+        /// <returns>Error code describing the result of the call.</returns>
+        public ErrorCode GoToSleep()
+        {
+            var broadcast = new BusRequest();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x06);
+
+            return SendBroadcast(broadcast);
+        }
+
+        /// <summary>
+        /// Requests all available devices to enter a powerdown mode.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call.</returns>
+        public Task<ErrorCode> GoToSleepAsync()
+        {
+            var broadcast = new BusRequest();
+            broadcast.Write((byte)0x00);
+            broadcast.Write((byte)0x06);
+
+            return SendBroadcastAsync(broadcast);
+        }
+
+
+        /// <summary>
         /// Pings devices on the bus within the given range of bus addresses.
         /// The list of devices which gave an answer is returned as a result.
         /// </summary>
@@ -334,7 +493,7 @@ namespace TURAG.Feldbus.Devices
         /// <param name="lastAddress">Last address to query.</param>
         /// <param name="stopOnMissingDevice">Specifies whether to stop the search on the first missing device.</param>
         /// <returns>Error code describing the result of the call.</returns>
-        public ErrorCode ScanBusAddresses(out IList<int> busAddresses, int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
+        public ErrorCode ScanBusAddresses(out IList<int> busAddresses, int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = true)
         {
             (var error, var result) = ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: true).GetAwaiter().GetResult();
             busAddresses = result;
@@ -354,7 +513,7 @@ namespace TURAG.Feldbus.Devices
 #if __DOXYGEN__
         public Task<Tuple<ErrorCode, IList<int>>> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
 #else
-        public Task<(ErrorCode, IList<int>)> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
+        public Task<(ErrorCode, IList<int>)> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = true)
 #endif
         {
             return ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: false);
@@ -393,6 +552,45 @@ namespace TURAG.Feldbus.Devices
 
         /// <summary>
         /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function tries to perform a sequential search and falls back to
+        /// a binary UUID search if the bus contains devices wqhich do not support disconnecting
+        /// its neigbors.The returned list of UUIDs resembles the physical order of the devices 
+        /// in the bus, unless the fallback to the binary UUID search was necessary.
+        /// </summary>
+        /// <param name="uuids">Returns the list of detected UUIDs.</param>
+        /// <param name="busOrderKnown">Indicates whether the returned list resembles the physical 
+        /// device order.</param>
+        /// <returns>An error code describing the result of the call.</returns>
+        public ErrorCode EnumerateDevices(out IList<uint> uuids, out bool busOrderKnown)
+        {
+            (var error, var devices, bool busOrder) = EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: true, sync: true).GetAwaiter().GetResult();
+            uuids = devices;
+            busOrderKnown = busOrder;
+            return error;
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function tries to perform a sequential search and falls back to
+        /// a binary UUID search if the bus contains devices wqhich do not support disconnecting
+        /// its neigbors.The returned list of UUIDs resembles the physical order of the devices 
+        /// in the bus, unless the fallback to the binary UUID search was necessary.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call, the 
+        /// list of detected UUIDs and a flag indicating whether the returned list resembles the physical 
+        /// device order.</returns>
+#if __DOXYGEN__
+        public async Task<ValueTuple<ErrorCode, IList<uint>, bool>> EnumerateDevicesAsync()
+#else
+        public Task<(ErrorCode, IList<uint>, bool)> EnumerateDevicesAsync()
+#endif
+        {
+            return EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: true, sync: false);
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
         /// of UUIDs. This function requires each node to be able to disconnect its neighbours from the bus, otherwise it will
         /// fail. The returned list of UUIDs resembles the physical order of the devices in the bus.
         /// </summary>
@@ -414,12 +612,42 @@ namespace TURAG.Feldbus.Devices
         /// Contains an error code describing the result of the call and the 
         /// list of detected UUIDs.</returns>
 #if __DOXYGEN__
-        public async Task<Tuple<ErrorCode, IList<uint>>> EnumerateDevicesSequentiallyAsync()
+        public async Task<ValueTuple<ErrorCode, IList<uint>>> EnumerateDevicesSequentiallyAsync()
 #else
         public async Task<(ErrorCode, IList<uint>)> EnumerateDevicesSequentiallyAsync()
 #endif
         {
             (var error, var devices, _) = await EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: false);
+            return (error, devices);
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function performs a binary search among available UUIDs. 
+        /// </summary>
+        /// <param name="uuids">Returns the list of detected UUIDs.</param>
+        /// <returns>An error code describing the result of the call.</returns>
+        public ErrorCode EnumerateDevicesUsingBinarySearch(out IList<uint> uuids)
+        {
+            (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: false, useBinarySearch: true, sync: true).GetAwaiter().GetResult();
+            uuids = devices;
+            return error;
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function performs a binary search among available UUIDs. 
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call and the 
+        /// list of detected UUIDs.</returns>
+#if __DOXYGEN__
+        public async Task<ValueTuple<ErrorCode, IList<uint>>> EnumerateDevicesUsingBinarySearchAsync()
+#else
+        public async Task<(ErrorCode, IList<uint>)> EnumerateDevicesUsingBinarySearchAsync()
+#endif
+        {
+            (var error, var devices, _) = await EnumerateBusNodesAsyncInternal(useSequentialSearch: false, useBinarySearch: true, sync: false);
             return (error, devices);
         }
 
@@ -439,25 +667,38 @@ namespace TURAG.Feldbus.Devices
                 return (ErrorCode.InvalidArgument, new List<uint>(), false);
             }
 
-            // TODO: if useSequentialSearch == false, then
+            // first reset all bus addresses
+            ErrorCode error;
+            if ((error = sync ? ResetAllBusAddresses() : await ResetAllBusAddressesAsync()) != ErrorCode.Success)
+            {
+                return (error, new List<uint>(), false);
+            }
+
             // directly return result of a binary only search function
-            //if (useSequentialSearch == false)
-            //{
-            //    return // todo
-            //}
+            if (useSequentialSearch == false)
+            {
+                var searcher = new BinaryAddressSearcher(this, BinarySearchDelayTime);
+                if ((error = sync ? searcher.FindAllDevices() : await searcher.FindAllDevicesAsync()) != ErrorCode.Success)
+                {
+                    return (error, new List<uint>(), false);
+                }
+
+                for (int i = 0; i < searcher.Devices.Count; ++i)
+                {
+                    if ((error = sync ? SetBusAddress(searcher.Devices[i], i + 1) : await SetBusAddressAsync(searcher.Devices[i], i + 1)) != ErrorCode.Success)
+                    {
+                        break;
+                    }
+                }
+
+                return (error, searcher.Devices, false);
+            }
 
             // Thus we can assume here that useSequentialSearch == true
             // and useBinarySearch is true or false
 
-            ErrorCode error;
             var devices = new List<uint>();
             bool deviceOrderKnown = true;
-
-            error = sync ? ResetAllBusAddresses() : await ResetAllBusAddressesAsync();
-            if (error != ErrorCode.Success)
-            {
-                return (error, new List<uint>(), false);
-            }
 
             error = sync ? DisableBusNeighbours() : await DisableBusNeighboursAsync();
             if (error != ErrorCode.Success)
@@ -483,22 +724,43 @@ namespace TURAG.Feldbus.Devices
                 {
                     // if the broadcast ping fails it can mean that either there are no more devices
                     // or more than one device tried to respond. If enabled, we fall back to binary search.
-                    // TODO
-                    //if (useBinarySearch)
-                    //{
-                    // here we also need to set deviceOrderKnown to false, if we found devices using the binary search.
-                    //}
-                    //else
-                    //{
-                    // otherwise return the current result
-                    return (ErrorCode.Success, devices, deviceOrderKnown);
-                    //}
+                    if (useBinarySearch)
+                    {
+                        var searcher = new BinaryAddressSearcher(this, BinarySearchDelayTime, onlyDevicesWithoutAddress: true);
+                        if ((error = sync ? searcher.FindAllDevices() : await searcher.FindAllDevicesAsync()) != ErrorCode.Success)
+                        {
+                            return (error, devices, deviceOrderKnown);
+                        }
+
+                        if (searcher.Devices.Count == 0)
+                        {
+                            // no more devices
+                            return (ErrorCode.Success, devices, deviceOrderKnown);
+                        }
+
+                        foreach (var binUuid in searcher.Devices)
+                        {
+                            if ((error = sync ? SetBusAddress(binUuid, nextBusAddress) : await SetBusAddressAsync(binUuid, nextBusAddress)) != ErrorCode.Success)
+                            {
+                                return (error, devices, deviceOrderKnown);
+                            }
+                            else
+                            {
+                                deviceOrderKnown = false;
+                                devices.Add(binUuid);
+                                ++nextBusAddress;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // otherwise return the current result
+                        return (ErrorCode.Success, devices, deviceOrderKnown);
+                    }
                 }
                 else
                 {
-                    error = sync ? SetBusAddress(uuid, nextBusAddress) : await SetBusAddressAsync(uuid, nextBusAddress);
-
-                    if (error != ErrorCode.Success)
+                    if ((error = sync ? SetBusAddress(uuid, nextBusAddress) : await SetBusAddressAsync(uuid, nextBusAddress)) != ErrorCode.Success)
                     {
                         return (error, devices, deviceOrderKnown);
                     }
@@ -516,5 +778,7 @@ namespace TURAG.Feldbus.Devices
                 }
             }
         }
+
+
     }
 }
