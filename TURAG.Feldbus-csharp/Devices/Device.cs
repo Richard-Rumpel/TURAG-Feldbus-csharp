@@ -10,7 +10,8 @@ namespace TURAG.Feldbus.Devices
 {
     /// <summary>
     /// Generic device implementing the basic protocol, which is supported by all %TURAG %Feldbus devices.
-    /// This class can be used for device discovery and enumeration. 
+    /// This class can be used for device discovery and enumeration. It needs to be initialized by calling
+    /// Initialize() or InitializeAsync().
     /// </summary>
     public class Device : BaseDevice
     {
@@ -47,6 +48,16 @@ namespace TURAG.Feldbus.Devices
         /// Returns the bus address of the device.
         /// </summary>
         public int Address { get; }
+
+
+        /// <summary>
+        /// Returns whether the device was initialized by a successful call
+        /// to Initialize() oder InitializeAsync().
+        /// </summary>
+        public bool Initialized
+        {
+            get => Info != null;
+        }
 
         /// <summary>
         /// Name of the device. This is a shortcut to ExtendedInfo.DeviceName. 
@@ -110,7 +121,8 @@ namespace TURAG.Feldbus.Devices
 
         /// <summary>
         /// Checks device availability by sending a ping packet. A ping packet
-        /// is the shortest possible payload.
+        /// is the shortest possible payload. This function may safely be used 
+        /// before calling Initialize().
         /// </summary>
         /// <returns>Error code describing the result of the call.</returns>
         public ErrorCode SendPing()
@@ -121,7 +133,8 @@ namespace TURAG.Feldbus.Devices
 
         /// <summary>
         /// Checks device availability by sending a ping packet. A ping packet
-        /// is the shortest possible payload.
+        /// is the shortest possible payload. This function may safely be used 
+        /// before calling InitializeAsync().
         /// </summary>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call.</returns>
