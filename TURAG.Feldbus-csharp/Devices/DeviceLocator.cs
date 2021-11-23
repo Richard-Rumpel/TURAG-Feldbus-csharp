@@ -72,6 +72,22 @@ namespace TURAG.Feldbus.Devices
         /// be called when it can be assumed that only one device is reachable on the bus, for instance
         /// after calling ResetAllBusAddresses(). The device responds by returning its UUID.
         /// </summary>
+        /// <returns>An error code describing the result of the call and the UUID of the device which 
+        /// responded to the request.</returns>
+#if __DOXYGEN__
+        public Tuple<ErrorCode, uint> SendBroadcastPing()
+#else
+        public (ErrorCode, uint) SendBroadcastPing()
+#endif
+        {
+            return SendBroadcastPingAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Pings any device which was not assigned a valid bus address. This function should only 
+        /// be called when it can be assumed that only one device is reachable on the bus, for instance
+        /// after calling ResetAllBusAddresses(). The device responds by returning its UUID.
+        /// </summary>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the UUID of the device which 
         /// responded to the request.</returns>
@@ -146,6 +162,21 @@ namespace TURAG.Feldbus.Devices
             ErrorCode errorCode;
             (errorCode, busAddress) = ReceiveBusAddressAsyncInternal(uuid, sync: true).GetAwaiter().GetResult();
             return errorCode;
+        }
+
+        /// <summary>
+        /// Returns the bus address of the device with the given UUID.
+        /// </summary>
+        /// <param name="uuid">UUID of the addressed device.</param>
+        /// <returns>An error code describing the result of the call and the bus address of the device 
+        /// with the given UUID.</returns>
+#if __DOXYGEN__
+        public Tuple<ErrorCode, int> ReceiveBusAddress(uint uuid)
+#else
+        public (ErrorCode, int) ReceiveBusAddress(uint uuid)
+#endif
+        {
+            return ReceiveBusAddressAsyncInternal(uuid, sync: true).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -507,6 +538,24 @@ namespace TURAG.Feldbus.Devices
         /// <param name="firstAdress">First address to query.</param>
         /// <param name="lastAddress">Last address to query.</param>
         /// <param name="stopOnMissingDevice">Specifies whether to stop the search on the first missing device.</param>
+        /// <returns>An error code describing the result of the call and the 
+        /// list of valid bus addresses.</returns>
+#if __DOXYGEN__
+        public Tuple<ErrorCode, IList<int>> ScanBusAddresses(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
+#else
+        public (ErrorCode, IList<int>) ScanBusAddresses(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = true)
+#endif
+        {
+            return ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Pings devices on the bus within the given range of bus addresses.
+        /// The list of devices which gave an answer is returned as a result.
+        /// </summary>
+        /// <param name="firstAdress">First address to query.</param>
+        /// <param name="lastAddress">Last address to query.</param>
+        /// <param name="stopOnMissingDevice">Specifies whether to stop the search on the first missing device.</param>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the 
         /// list of valid bus addresses.</returns>
@@ -576,12 +625,31 @@ namespace TURAG.Feldbus.Devices
         /// its neigbors.The returned list of UUIDs resembles the physical order of the devices 
         /// in the bus, unless the fallback to the binary UUID search was necessary.
         /// </summary>
+        /// <returns>An error code describing the result of the call, the 
+        /// list of detected UUIDs and a flag indicating whether the returned list resembles the physical 
+        /// device order.</returns>
+#if __DOXYGEN__
+        public ValueTuple<ErrorCode, IList<uint>, bool> EnumerateDevices()
+#else
+        public (ErrorCode, IList<uint>, bool) EnumerateDevices()
+#endif
+        {
+            return EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: true, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function tries to perform a sequential search and falls back to
+        /// a binary UUID search if the bus contains devices wqhich do not support disconnecting
+        /// its neigbors.The returned list of UUIDs resembles the physical order of the devices 
+        /// in the bus, unless the fallback to the binary UUID search was necessary.
+        /// </summary>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call, the 
         /// list of detected UUIDs and a flag indicating whether the returned list resembles the physical 
         /// device order.</returns>
 #if __DOXYGEN__
-        public async Task<ValueTuple<ErrorCode, IList<uint>, bool>> EnumerateDevicesAsync()
+        public Task<ValueTuple<ErrorCode, IList<uint>, bool>> EnumerateDevicesAsync()
 #else
         public Task<(ErrorCode, IList<uint>, bool)> EnumerateDevicesAsync()
 #endif
@@ -601,6 +669,23 @@ namespace TURAG.Feldbus.Devices
             (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: true).GetAwaiter().GetResult();
             uuids = devices;
             return error;
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function requires each node to be able to disconnect its neighbours from the bus, otherwise it will
+        /// fail. The returned list of UUIDs resembles the physical order of the devices in the bus.
+        /// </summary>
+        /// <returns>An error code describing the result of the call and the 
+        /// list of detected UUIDs.</returns>
+#if __DOXYGEN__
+        public ValueTuple<ErrorCode, IList<uint>> EnumerateDevicesSequentially()
+#else
+        public (ErrorCode, IList<uint>) EnumerateDevicesSequentially()
+#endif
+        {
+            (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: true).GetAwaiter().GetResult();
+            return (error, devices);
         }
 
         /// <summary>
@@ -632,6 +717,22 @@ namespace TURAG.Feldbus.Devices
             (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: false, useBinarySearch: true, sync: true).GetAwaiter().GetResult();
             uuids = devices;
             return error;
+        }
+
+        /// <summary>
+        /// Assigns new bus addresses to all available nodes starting with 1 and returns the list 
+        /// of UUIDs. This function performs a binary search among available UUIDs. 
+        /// </summary>
+        /// <returns>An error code describing the result of the call and the 
+        /// list of detected UUIDs.</returns>
+#if __DOXYGEN__
+        public ValueTuple<ErrorCode, IList<uint>> EnumerateDevicesUsingBinarySearch()
+#else
+        public (ErrorCode, IList<uint>) EnumerateDevicesUsingBinarySearch()
+#endif
+        {
+            (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: false, useBinarySearch: true, sync: true).GetAwaiter().GetResult();
+            return (error, devices);
         }
 
         /// <summary>

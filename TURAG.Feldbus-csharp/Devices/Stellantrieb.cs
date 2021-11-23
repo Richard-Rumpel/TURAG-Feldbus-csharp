@@ -343,6 +343,15 @@ namespace TURAG.Feldbus.Devices
         }
 
 #if __DOXYGEN__
+        public Tuple<ErrorCode, float> GetFloatValue(byte key)
+#else
+        public (ErrorCode, float) GetFloatValue(byte key)
+#endif
+        {
+            return GetFloatValueAsyncInternal(key, sync: true).GetAwaiter().GetResult();
+        }
+
+#if __DOXYGEN__
         public Task<Tuple<ErrorCode, float>> GetFloatValueAsync(byte key)
 #else
         public Task<(ErrorCode, float)> GetFloatValueAsync(byte key)
@@ -459,6 +468,15 @@ namespace TURAG.Feldbus.Devices
             ErrorCode error;
             (error, value) = GetIntValueAsyncInternal(key, sync: true).GetAwaiter().GetResult();
             return error;
+        }
+
+#if __DOXYGEN__
+        public Tuple<ErrorCode, int> GetIntValue(byte key)
+#else
+        public (ErrorCode, int) GetIntValue(byte key)
+#endif
+        {
+            return GetIntValueAsyncInternal(key, sync: true).GetAwaiter().GetResult();
         }
 
 #if __DOXYGEN__

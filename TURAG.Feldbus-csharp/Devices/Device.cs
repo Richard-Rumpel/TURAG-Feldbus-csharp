@@ -54,7 +54,7 @@ namespace TURAG.Feldbus.Devices
         /// Returns whether the device was initialized by a successful call
         /// to Initialize() oder InitializeAsync().
         /// </summary>
-        public bool Initialized
+        public virtual bool Initialized
         {
             get => Info != null;
         }
@@ -312,6 +312,20 @@ namespace TURAG.Feldbus.Devices
         /// <summary>
         /// Retrieves the transmission statistics of the bus device.
         /// </summary>
+        /// <returns>An error code describing the result of the call and an instance
+        /// of the class DevicePacketStatistics containing the data received from the device..</returns>
+#if __DOXYGEN__
+        public Tuple<ErrorCode, DevicePacketStatistics> RetrieveDeviceStatistics()
+#else
+        public (ErrorCode, DevicePacketStatistics) RetrieveDeviceStatistics()
+#endif
+        {
+            return RetrieveDeviceStatisticsAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Retrieves the transmission statistics of the bus device.
+        /// </summary>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and an instance
         /// of the class DevicePacketStatistics containing the data received from the device..</returns>
@@ -374,9 +388,23 @@ namespace TURAG.Feldbus.Devices
         /// <summary>
         /// Retrieves the time since power-up from the device.
         /// </summary>
+        /// <returns>An error code describing the result of the call and
+        /// the uptime of the device in seconds.</returns>
+#if __DOXYGEN__
+        public Tuple<ErrorCode, double> RetrieveUptime()
+#else
+        public (ErrorCode, double) RetrieveUptime()
+#endif
+        {
+            return RetrieveUptimeAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Retrieves the time since power-up from the device.
+        /// </summary>
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and
-        /// the uptime of the device in seconds..</returns>
+        /// the uptime of the device in seconds.</returns>
 #if __DOXYGEN__
         public Task<Tuple<ErrorCode, double>> RetrieveUptimeAsync()
 #else
