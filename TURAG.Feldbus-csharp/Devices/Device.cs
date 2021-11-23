@@ -95,6 +95,11 @@ namespace TURAG.Feldbus.Devices
         public ExtendedDeviceInfo ExtendedInfo { get; private set; }
 
         /// <summary>
+        /// A textual representation of Info and ExtendedInfo.
+        /// </summary>
+        public string DeviceInfoText { get; private set; }
+
+        /// <summary>
         /// Initializes the object by retrieving the device information
         /// structure. Should be called before further usage of the class. Overriding
         /// classes have to call the base implementation.
@@ -204,6 +209,8 @@ namespace TURAG.Feldbus.Devices
                             InternalDeviceInfo.Uuid,
                             InternalDeviceInfo.UptimeFrequency);
                     }
+
+                    UpdateDeviceInfoString();
                     return ErrorCode.Success;
                 }
 
@@ -263,6 +270,7 @@ namespace TURAG.Feldbus.Devices
                     }
 
                     ExtendedInfo = new ExtendedDeviceInfo(deviceName, versionInfo, InternalDeviceInfo.BufferSize);
+                    UpdateDeviceInfoString();
                 }
                 else
                 {
@@ -290,6 +298,7 @@ namespace TURAG.Feldbus.Devices
                         Encoding.UTF8.GetString(deviceName), 
                         Encoding.UTF8.GetString(versionInfo), 
                         bufferSize);
+                    UpdateDeviceInfoString();
                 }
             }
 
@@ -494,6 +503,48 @@ namespace TURAG.Feldbus.Devices
         protected Task<BusTransceiveResult> TransceiveAsync(BusRequest request, int responseSize = 0)
         {
             return TransceiveAsync(Address, request, responseSize);
+        }
+
+        private void UpdateDeviceInfoString()
+        {
+            var sb = new StringBuilder();
+
+            if (ExtendedInfo != null)
+            {
+                sb.AppendLine("Class type: " + GetType().FullName);
+                sb.AppendLine("Address: " + Address);
+                sb.AppendLine("DeviceName: " + ExtendedInfo.DeviceName);
+                sb.AppendLine("VersionInfo: " + ExtendedInfo.VersionInfo);
+                sb.AppendLine("DeviceProtocolId: " + Info.DeviceProtocolId);
+                sb.AppendLine("DeviceTypeId: " + Info.DeviceTypeId);
+                sb.AppendLine("CrcType: " + Info.CrcType);
+                sb.AppendLine("StatisticsAvailable: " + Info.StatisticsAvailable);
+                sb.AppendLine("Uuid: " + FormatUuid(Info.Uuid));
+                sb.AppendLine("UptimeFrequency: " + Info.UptimeFrequency);
+                sb.AppendLine("UptimeAvailable: " + Info.UptimeAvailable);
+                sb.AppendLine("BufferSize: " + ExtendedInfo.BufferSize);
+            }
+            else if (Info != null)
+            {
+                sb.AppendLine("Class type: " + GetType().FullName);
+                sb.AppendLine("Address: " + Address);
+                sb.AppendLine("DeviceProtocolId: " + Info.DeviceProtocolId);
+                sb.AppendLine("DeviceTypeId: " + Info.DeviceTypeId);
+                sb.AppendLine("CrcType: " + Info.CrcType);
+                sb.AppendLine("StatisticsAvailable: " + Info.StatisticsAvailable);
+                sb.AppendLine("Uuid: " + FormatUuid(Info.Uuid));
+                sb.AppendLine("UptimeFrequency: " + Info.UptimeFrequency);
+                sb.AppendLine("UptimeAvailable: " + Info.UptimeAvailable);
+                sb.AppendLine("call RetrieveExtendedDeviceInfo() or RetrieveExtendedDeviceInfoAsync() to get more information.");
+            }
+            else
+            {
+                sb.AppendLine("Class type: " + GetType().FullName);
+                sb.AppendLine("Address: " + Address);
+                sb.AppendLine("call RetrieveDeviceInfo() or RetrieveDeviceInfo() to get more information.");
+            }
+
+            DeviceInfoText = sb.ToString();
         }
     }
 }
