@@ -79,52 +79,6 @@ namespace TURAG.Feldbus.Devices
                             nextLevelAddresses = oneLevelDeeper;
                         }
                     }
-
-
-                    /*if ((Address & (uint)(1 << (Level - 1))) == 0)
-                    {
-                        if (foundThisAddress)
-                        {
-                            var oneLevelDeeper = new SearchAddress(Address, Level + 1);
-                            if (oneLevelDeeper.Found)
-                            {
-                                detectedDevice = oneLevelDeeper;
-                            }
-                            else
-                            {
-                                nextSearchAddresses.Add(oneLevelDeeper);
-                            }
-
-                            nextSearchAddresses.Add(new SearchAddress(Address | (uint)(1 << (Level - 1)), Level)); // sibling on same level
-                        }
-                        else
-                        {
-                            var oneLevelDeeper = new SearchAddress(Address | (uint)(1 << (Level - 1)), Level + 1); // sibling one level deeper
-                            if (oneLevelDeeper.Found)
-                            {
-                                detectedDevice = oneLevelDeeper;
-                            }
-                            else
-                            {
-                                nextSearchAddresses.Add(oneLevelDeeper);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (foundThisAddress)
-                        {
-                            var oneLevelDeeper = new SearchAddress(Address, Level + 1);
-                            if (oneLevelDeeper.Found)
-                            {
-                                detectedDevice = oneLevelDeeper;
-                            }
-                            else
-                            {
-                                nextSearchAddresses.Add(oneLevelDeeper);
-                            }
-                        }
-                    }*/
                 }
 
                 return (detectedDevice, nextLevelAddresses, sameLevelAddress);
