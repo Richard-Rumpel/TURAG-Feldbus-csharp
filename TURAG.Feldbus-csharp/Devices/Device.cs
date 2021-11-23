@@ -324,9 +324,9 @@ namespace TURAG.Feldbus.Devices
         /// <returns>An error code describing the result of the call and an instance
         /// of the class DevicePacketStatistics containing the data received from the device..</returns>
 #if __DOXYGEN__
-        public Tuple<ErrorCode, DevicePacketStatistics> RetrieveDeviceStatistics()
+        public ValueTuple<ErrorCode errorCode, DevicePacketStatistics devicePacketStatistics> RetrieveDeviceStatistics()
 #else
-        public (ErrorCode, DevicePacketStatistics) RetrieveDeviceStatistics()
+        public (ErrorCode errorCode, DevicePacketStatistics devicePacketStatistics) RetrieveDeviceStatistics()
 #endif
         {
             return RetrieveDeviceStatisticsAsyncInternal(sync: true).GetAwaiter().GetResult();
@@ -338,11 +338,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and an instance
         /// of the class DevicePacketStatistics containing the data received from the device..</returns>
-#if __DOXYGEN__
-        public Task<Tuple<ErrorCode, DevicePacketStatistics>> RetrieveDeviceStatisticsAsync()
-#else
-        public Task<(ErrorCode, DevicePacketStatistics)> RetrieveDeviceStatisticsAsync()
-#endif
+        public Task<(ErrorCode errorCode, DevicePacketStatistics devicePacketStatistics)> RetrieveDeviceStatisticsAsync()
         {
             return RetrieveDeviceStatisticsAsyncInternal(sync: false);
         }
@@ -400,9 +396,9 @@ namespace TURAG.Feldbus.Devices
         /// <returns>An error code describing the result of the call and
         /// the uptime of the device in seconds.</returns>
 #if __DOXYGEN__
-        public Tuple<ErrorCode, double> RetrieveUptime()
+        public ValueTuple<ErrorCode errorCode, double uptime> RetrieveUptime()
 #else
-        public (ErrorCode, double) RetrieveUptime()
+        public (ErrorCode errorCode, double uptime) RetrieveUptime()
 #endif
         {
             return RetrieveUptimeAsyncInternal(sync: true).GetAwaiter().GetResult();
@@ -414,11 +410,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and
         /// the uptime of the device in seconds.</returns>
-#if __DOXYGEN__
-        public Task<Tuple<ErrorCode, double>> RetrieveUptimeAsync()
-#else
-        public Task<(ErrorCode, double)> RetrieveUptimeAsync()
-#endif
+        public Task<(ErrorCode errorCode, double uptime)> RetrieveUptimeAsync()
         {
             return RetrieveUptimeAsyncInternal(sync: false);
         }

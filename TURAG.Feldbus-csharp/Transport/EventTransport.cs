@@ -107,11 +107,11 @@ namespace TURAG.Feldbus.Transport
         /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
         /// <param name="bytesRequested">Number of raw bytes to receive (including address and checksum).</param>
         /// <returns>True if transmission was successful and the requested number
-        /// of bytes were received, false otherwise.</returns>
+        /// of bytes were received, false otherwise and the received data.</returns>
 #if __DOXYGEN__
-        protected override Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested)
+        protected override ValueTuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested)
 #else
-        protected override (bool, byte[]) DoTransceive(byte[] data, int bytesRequested)
+        protected override (bool success, byte[] receivedData) DoTransceive(byte[] data, int bytesRequested)
 #endif
 
         {
@@ -132,11 +132,7 @@ namespace TURAG.Feldbus.Transport
         /// <param name="data"></param>
         /// <param name="bytesRequested"></param>
         /// <returns></returns>
-#if __DOXYGEN__
-        protected override Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested)
-#else
-        protected override Task<(bool, byte[])> DoTransceiveAsync(byte[] data, int bytesRequested)
-#endif
+        protected override Task<(bool success, byte[] receivedData)> DoTransceiveAsync(byte[] data, int bytesRequested)
         {
             throw new NotImplementedException();
         }

@@ -84,9 +84,9 @@ namespace TURAG.Feldbus.Transport
 
 
 #if __DOXYGEN__
-        protected override Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested)
+        protected override ValueTuple<bool success, byte[] receivedData> DoTransceive(byte[] data, int bytesRequested)
 #else
-        protected override (bool, byte[]) DoTransceive(byte[] transmitData, int bytesRequested)
+        protected override (bool success, byte[] receivedData) DoTransceive(byte[] transmitData, int bytesRequested)
 #endif
         {
             switch (Mode)
@@ -131,11 +131,7 @@ namespace TURAG.Feldbus.Transport
             return (false, null);
         }
 
-#if __DOXYGEN__
-        protected override Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested)
-#else
-        protected override Task<(bool, byte[])> DoTransceiveAsync(byte[] data, int bytesRequested)
-#endif
+        protected override Task<(bool success, byte[] receivedData)> DoTransceiveAsync(byte[] data, int bytesRequested)
         {
             return Task.FromResult(DoTransceive(data, bytesRequested));
         }

@@ -171,11 +171,11 @@ namespace TURAG.Feldbus.Transport
         /// <param name="data">Raw data frame to transmit (including address and checksum).</param>
         /// <param name="bytesRequested">Number of raw bytes to receive (including address and checksum).</param>
         /// <returns>True if transmission was successful and the requested number
-        /// of bytes were received, false otherwise.</returns>
+        /// of bytes were received, false otherwise and the received data.</returns>
 #if __DOXYGEN__
-        protected abstract Tuple<bool, byte[]> DoTransceive(byte[] data, int bytesRequested);
+        protected abstract ValueTuple<bool success, byte[] receivedData> DoTransceive(byte[] data, int bytesRequested);
 #else
-        protected abstract (bool, byte[]) DoTransceive(byte[] data, int bytesRequested);
+        protected abstract (bool success, byte[] receivedData) DoTransceive(byte[] data, int bytesRequested);
 #endif
 
         /// <summary>
@@ -185,12 +185,8 @@ namespace TURAG.Feldbus.Transport
         /// <param name="bytesRequested">Number of raw bytes to receive (including address and checksum).</param>
         /// <returns>A task representing the asynchronous operation. Contains 
         /// true if transmission was successful and the requested number
-        /// of bytes were received, false otherwise.</returns>
-#if __DOXYGEN__
-        protected abstract Task<Tuple<bool, byte[]>> DoTransceiveAsync(byte[] data, int bytesRequested);
-#else
-        protected abstract Task<(bool, byte[])> DoTransceiveAsync(byte[] data, int bytesRequested);
-#endif
+        /// of bytes were received, false otherwise and the received data.</returns>
+        protected abstract Task<(bool success, byte[] receivedData)> DoTransceiveAsync(byte[] data, int bytesRequested);
 
         /// <summary>
         /// Clears the input buffer of the transport channel.
@@ -205,19 +201,6 @@ namespace TURAG.Feldbus.Transport
         /// true if the buffer was successfully cleared, false otherwise.</returns>
         protected abstract Task<bool> DoClearBufferAsync();
 
-
-
-        /*
-        private string ByteArrayToString(byte[] bytes)
-        {
-            var sb = new StringBuilder("byte[] { ");
-            foreach (var b in bytes)
-            {
-                sb.Append(b + ", ");
-            }
-            sb.Append("}");
-            return sb.ToString();
-        }*/
 
 
         /// <summary>

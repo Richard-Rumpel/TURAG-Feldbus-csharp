@@ -75,9 +75,9 @@ namespace TURAG.Feldbus.Devices
         /// <returns>An error code describing the result of the call and the UUID of the device which 
         /// responded to the request.</returns>
 #if __DOXYGEN__
-        public Tuple<ErrorCode, uint> SendBroadcastPing()
+        public ValueTuple<ErrorCode errorCode, uint uuid> SendBroadcastPing()
 #else
-        public (ErrorCode, uint) SendBroadcastPing()
+        public (ErrorCode errorCode, uint uuid) SendBroadcastPing()
 #endif
         {
             return SendBroadcastPingAsyncInternal(sync: true).GetAwaiter().GetResult();
@@ -91,11 +91,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the UUID of the device which 
         /// responded to the request.</returns>
-#if __DOXYGEN__
-        public Task<Tuple<ErrorCode, uint>> SendBroadcastPingAsync()
-#else
-        public Task<(ErrorCode, uint)> SendBroadcastPingAsync()
-#endif
+        public Task<(ErrorCode errorCode, uint uuid)> SendBroadcastPingAsync()
         {
             return SendBroadcastPingAsyncInternal(sync: false);
         }
@@ -171,9 +167,9 @@ namespace TURAG.Feldbus.Devices
         /// <returns>An error code describing the result of the call and the bus address of the device 
         /// with the given UUID.</returns>
 #if __DOXYGEN__
-        public Tuple<ErrorCode, int> ReceiveBusAddress(uint uuid)
+        public ValueTuple<ErrorCode errorCode, int busAddress> ReceiveBusAddress(uint uuid)
 #else
-        public (ErrorCode, int) ReceiveBusAddress(uint uuid)
+        public (ErrorCode errorCode, int busAddress) ReceiveBusAddress(uint uuid)
 #endif
         {
             return ReceiveBusAddressAsyncInternal(uuid, sync: true).GetAwaiter().GetResult();
@@ -186,11 +182,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the bus address of the device 
         /// with the given UUID.</returns>
-#if __DOXYGEN__
-        public Task<Tuple<ErrorCode, int>> ReceiveBusAddressAsync(uint uuid)
-#else
-        public Task<(ErrorCode, int)> ReceiveBusAddressAsync(uint uuid)
-#endif
+        public Task<(ErrorCode errorCode, int busAddress)> ReceiveBusAddressAsync(uint uuid)
         {
             return ReceiveBusAddressAsyncInternal(uuid, sync: false);
         }
@@ -541,9 +533,9 @@ namespace TURAG.Feldbus.Devices
         /// <returns>An error code describing the result of the call and the 
         /// list of valid bus addresses.</returns>
 #if __DOXYGEN__
-        public Tuple<ErrorCode, IList<int>> ScanBusAddresses(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
+        public ValueTuple<ErrorCode errorCode, IList<int> busAddresses> ScanBusAddresses(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
 #else
-        public (ErrorCode, IList<int>) ScanBusAddresses(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = true)
+        public (ErrorCode errorCode, IList<int> busAddresses) ScanBusAddresses(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = true)
 #endif
         {
             return ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: true).GetAwaiter().GetResult();
@@ -559,11 +551,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the 
         /// list of valid bus addresses.</returns>
-#if __DOXYGEN__
-        public Task<Tuple<ErrorCode, IList<int>>> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = false)
-#else
-        public Task<(ErrorCode, IList<int>)> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = true)
-#endif
+        public Task<(ErrorCode errorCode, IList<int> busAddresses)> ScanBusAddressesAsync(int firstAdress = 1, int lastAddress = 127, bool stopOnMissingDevice = true)
         {
             return ScanBusAddressesAsyncInternal(firstAdress, lastAddress, stopOnMissingDevice, sync: false);
         }
@@ -629,9 +617,9 @@ namespace TURAG.Feldbus.Devices
         /// list of detected UUIDs and a flag indicating whether the returned list resembles the physical 
         /// device order.</returns>
 #if __DOXYGEN__
-        public ValueTuple<ErrorCode, IList<uint>, bool> EnumerateDevices()
+        public ValueTuple<ErrorCode errorCode, IList<uint> uuids, bool busOrderKnown> EnumerateDevices()
 #else
-        public (ErrorCode, IList<uint>, bool) EnumerateDevices()
+        public (ErrorCode errorCode, IList<uint> uuids, bool busOrderKnown) EnumerateDevices()
 #endif
         {
             return EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: true, sync: true).GetAwaiter().GetResult();
@@ -648,11 +636,7 @@ namespace TURAG.Feldbus.Devices
         /// Contains an error code describing the result of the call, the 
         /// list of detected UUIDs and a flag indicating whether the returned list resembles the physical 
         /// device order.</returns>
-#if __DOXYGEN__
-        public Task<ValueTuple<ErrorCode, IList<uint>, bool>> EnumerateDevicesAsync()
-#else
-        public Task<(ErrorCode, IList<uint>, bool)> EnumerateDevicesAsync()
-#endif
+        public Task<(ErrorCode errorCode, IList<uint> uuids, bool busOrderKnown)> EnumerateDevicesAsync()
         {
             return EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: true, sync: false);
         }
@@ -679,9 +663,9 @@ namespace TURAG.Feldbus.Devices
         /// <returns>An error code describing the result of the call and the 
         /// list of detected UUIDs.</returns>
 #if __DOXYGEN__
-        public ValueTuple<ErrorCode, IList<uint>> EnumerateDevicesSequentially()
+        public ValueTuple<ErrorCode errorCode, IList<uint> uuids> EnumerateDevicesSequentially()
 #else
-        public (ErrorCode, IList<uint>) EnumerateDevicesSequentially()
+        public (ErrorCode errorCode, IList<uint> uuids) EnumerateDevicesSequentially()
 #endif
         {
             (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: true).GetAwaiter().GetResult();
@@ -696,11 +680,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the 
         /// list of detected UUIDs.</returns>
-#if __DOXYGEN__
-        public async Task<ValueTuple<ErrorCode, IList<uint>>> EnumerateDevicesSequentiallyAsync()
-#else
-        public async Task<(ErrorCode, IList<uint>)> EnumerateDevicesSequentiallyAsync()
-#endif
+        public async Task<(ErrorCode errorCode, IList<uint> uuids)> EnumerateDevicesSequentiallyAsync()
         {
             (var error, var devices, _) = await EnumerateBusNodesAsyncInternal(useSequentialSearch: true, useBinarySearch: false, sync: false);
             return (error, devices);
@@ -726,9 +706,9 @@ namespace TURAG.Feldbus.Devices
         /// <returns>An error code describing the result of the call and the 
         /// list of detected UUIDs.</returns>
 #if __DOXYGEN__
-        public ValueTuple<ErrorCode, IList<uint>> EnumerateDevicesUsingBinarySearch()
+        public ValueTuple<ErrorCode errorCode, IList<uint> uuids> EnumerateDevicesUsingBinarySearch()
 #else
-        public (ErrorCode, IList<uint>) EnumerateDevicesUsingBinarySearch()
+        public (ErrorCode errorCode, IList<uint> uuids) EnumerateDevicesUsingBinarySearch()
 #endif
         {
             (var error, var devices, _) = EnumerateBusNodesAsyncInternal(useSequentialSearch: false, useBinarySearch: true, sync: true).GetAwaiter().GetResult();
@@ -742,11 +722,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call and the 
         /// list of detected UUIDs.</returns>
-#if __DOXYGEN__
-        public async Task<ValueTuple<ErrorCode, IList<uint>>> EnumerateDevicesUsingBinarySearchAsync()
-#else
-        public async Task<(ErrorCode, IList<uint>)> EnumerateDevicesUsingBinarySearchAsync()
-#endif
+        public async Task<(ErrorCode errorCode, IList<uint> uuids)> EnumerateDevicesUsingBinarySearchAsync()
         {
             (var error, var devices, _) = await EnumerateBusNodesAsyncInternal(useSequentialSearch: false, useBinarySearch: true, sync: false);
             return (error, devices);
