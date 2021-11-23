@@ -204,7 +204,7 @@ namespace TURAG.Feldbus.Devices
             get => numberOfAnalogInputs;
         }
 
-        public bool Initialized
+        public override bool Initialized
         {
             get => initialized;
         }
