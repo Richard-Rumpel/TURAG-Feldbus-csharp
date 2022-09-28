@@ -89,6 +89,18 @@ namespace TURAG.Feldbus.Types
         [Description("No device did assert the bus in response to a RequestBusAssertion broadcast.")]
         NoAssertionDetected,
 
+        /// <summary>
+        /// The supplied address or size was rejected when reading/writing the static storage.
+        /// </summary>
+        [Description("The supplied address or size was rejected when reading/writing the static storage.")]
+        DeviceStaticStorageAddressSizeError,
+
+        /// <summary>
+        /// Writing to the device static storage failed.
+        /// </summary>
+        [Description("Writing to the device static storage failed.")]
+        DeviceStaticStorageWriteError,
+
 
         /// <summary>
         /// The given key is invalid for this Stellantrieb device.

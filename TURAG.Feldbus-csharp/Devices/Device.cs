@@ -25,7 +25,12 @@ namespace TURAG.Feldbus.Devices
             GetNumberOfLostPackets = 0x05,
             GetNumberOfChecksumFailures = 0x06,
             GetAllPacketCounters = 0x07,
-            ResetPacketCounters = 0x08
+            ResetPacketCounters = 0x08,
+            GetUuid = 0x09,
+            GetExtendedDeviceInfo = 0x0A,
+            GetStaticStorageCapacity = 0x0B,
+            ReadFromStaticStorage = 0x0C,
+            WriteToStaticStorage = 0x0D
         };
 
         private static readonly string defaultDeviceName = "Feldbus Device";
@@ -186,7 +191,7 @@ namespace TURAG.Feldbus.Devices
                         // 0000-0000 should look suspicious enough anyway.
                         request = new BusRequest();
                         request.Write((byte)0);  // get uuid command
-                        request.Write((byte)9); 
+                        request.Write((byte)CommandKey.GetUuid); 
                         result = sync ? Transceive(request, 4) : await TransceiveAsync(request, 4);
 
                         uint uuid = result.Success ? result.Response.ReadUInt32() : 0;
@@ -276,7 +281,7 @@ namespace TURAG.Feldbus.Devices
                 {
                     BusRequest request = new BusRequest();
                     request.Write((byte)0x00);  // extended device info command
-                    request.Write((byte)0x0A);  
+                    request.Write((byte)CommandKey.GetExtendedDeviceInfo);  
 
                     BusTransceiveResult result = sync ? 
                         Transceive(request, InternalDeviceInfo.ExtendedDeviceInfoLength) : 
@@ -470,6 +475,415 @@ namespace TURAG.Feldbus.Devices
             {
                 return (result.TransportError, Encoding.UTF8.GetString(result.Response.ReadBytes(stringLength)));
             }
+        }
+
+        /// <summary>
+        /// Return the capacity of the static data storage and its page size. 
+        /// For write operations valid values of the address offset are limited to multiples of the page size.
+        /// If the supplied data is shorter than a multiple of the page size, the remaining data of the last 
+        /// should be assumed to be deleted. 
+        /// </summary>
+        /// <returns>An error code describing the result of the call.</returns>
+        public ErrorCode ReadStaticStorageCapacityAndPageSize(out int storageCapacity, out int pageSize)
+        {
+            ErrorCode error;
+            (error, storageCapacity, pageSize) = ReadStaticStorageCapacityAndPageSizeAsyncInternal(sync: true).GetAwaiter().GetResult();
+            return error;
+        }
+
+        /// <summary>
+        /// Return the capacity of the static data storage and its page size. 
+        /// For write operations valid values of the address offset are limited to multiples of the page size. 
+        /// If the supplied data is shorter than a multiple of the page size, the remaining data of the last 
+        /// should be assumed to be deleted. 
+        /// </summary>
+        /// <returns>An error code describing the result of the call, the static storage capacity and
+        /// its page size.</returns>
+        public (ErrorCode, int, int) ReadStaticStorageCapacityAndPageSize()
+        {
+            return ReadStaticStorageCapacityAndPageSizeAsyncInternal(sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Return the capacity of the static data storage and its page size. 
+        /// For write operations valid values of the address offset are limited to multiples of the page size. 
+        /// If the supplied data is shorter than a multiple of the page size, the remaining data of the last 
+        /// should be assumed to be deleted. 
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.
+        /// Contains an error code describing the result of the call, the static storage capacity and
+        /// its page size.</returns>
+        public Task<(ErrorCode, int, int)> ReadStaticStorageCapacityAndPageSizeAsync()
+        {
+            return ReadStaticStorageCapacityAndPageSizeAsyncInternal(sync: false);
+        }
+
+        int _staticStorageCapacity = -1;
+        int _staticStoragePageSize = -1;
+
+        private async Task<(ErrorCode, int, int)> ReadStaticStorageCapacityAndPageSizeAsyncInternal(bool sync)
+        {
+            if (_staticStorageCapacity == -1)
+            {
+                BusRequest request = new BusRequest();
+                request.Write((byte)0);
+                request.Write((byte)CommandKey.GetStaticStorageCapacity);
+
+                BusTransceiveResult result = sync ? Transceive(request, 6) : await TransceiveAsync(request, 6);
+
+                if (!result.Success)
+                {
+                    return (result.TransportError, 0, 0);
+                }
+
+                _staticStorageCapacity = (int)result.Response.ReadUInt32();
+                _staticStoragePageSize = (int)result.Response.ReadUInt16();
+            }
+
+            return (ErrorCode.Success, _staticStorageCapacity, _staticStoragePageSize);
+        }
+
+        /// <summary>
+        /// Reads UTF8-encoded string from the static storage. The end of the string is detected
+        /// by reading chunks of data with the specified size until a \0-character has been found.
+        /// If no \0-character is found before the maximum number of bytes have been read, the string
+        /// read so far is returned.
+        /// </summary>
+        /// <param name="readChunkSize">Size of chunks to read.</param>
+        /// <param name="maxReadSize">Maximum data size to read.</param>
+        /// <returns>A task representing the asynchronous operation containing the read string or null on error.</returns>
+        public string ReadStringFromStaticStorage(int readChunkSize = 256, int maxReadSize = 65536)
+        {
+            return ReadStringFromStaticStorageAsyncInternal(readChunkSize, maxReadSize, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Reads UTF8-encoded string from the static storage. The end of the string is detected
+        /// by reading chunks of data with the specified size until a \0-character has been found.
+        /// If no \0-character is found before the maximum number of bytes have been read, the string
+        /// read so far is returned.
+        /// </summary>
+        /// <param name="readChunkSize">Size of chunks to read.</param>
+        /// <param name="maxReadSize">Maximum data size to read.</param>
+        /// <returns>The read string or null on error.</returns>
+        public Task<string> ReadStringFromStaticStorageAsync(int readChunkSize = 256, int maxReadSize = 65536)
+        {
+            return ReadStringFromStaticStorageAsyncInternal(readChunkSize, maxReadSize, sync: false);
+        }
+
+        private async Task<string> ReadStringFromStaticStorageAsyncInternal(int readChunkSize, int maxReadSize, bool sync)
+        {
+            var readCapacityResult = sync ? ReadStaticStorageCapacityAndPageSize() : await ReadStaticStorageCapacityAndPageSizeAsync();
+            if (readCapacityResult.Item1 != ErrorCode.Success)
+            {
+                return null;
+            }
+
+            var retrieveExtendedDeviceInfoResult = sync ? RetrieveExtendedDeviceInfo() : await RetrieveExtendedDeviceInfoAsync();
+            if (retrieveExtendedDeviceInfoResult != ErrorCode.Success)
+            {
+                return null;
+            }
+
+            maxReadSize = Math.Min(_staticStorageCapacity, maxReadSize);
+            int maxReadChunkSize = Math.Min(readChunkSize, ExtendedInfo.BufferSize - 1);
+            int offset = 0;
+            bool foundNull = false;
+
+            var readData = new List<byte>();
+
+            while (offset < maxReadSize && !foundNull)
+            {
+                //dont read beyond storage capacity
+                int readSize = Math.Min(maxReadChunkSize, _staticStorageCapacity - offset);
+
+                (ErrorCode error, byte[] readDataChunk) = sync ? 
+                    ReadDataFromStaticStorage((uint)offset, (uint)readSize) : 
+                    await ReadDataFromStaticStorageAsync((uint)offset, (uint)readSize);
+
+                if (error != ErrorCode.Success)
+                {
+                    return null;
+                }
+
+                for (int i = 0; i < readDataChunk.Length; ++i)
+                {
+                    if (readDataChunk[i] == 0)
+                    {
+                        foundNull = true;
+                        break;
+                    }
+                    else
+                    {
+                        readData.Add(readDataChunk[i]);
+                    }
+                }
+
+                offset += readSize;
+            }
+
+            return new UTF8Encoding().GetString(readData.ToArray());
+        }
+
+        /// <summary>
+        /// Reads data from the static storage.
+        /// </summary>
+        /// <param name="offset">Offset to start reading from.</param>
+        /// <param name="size">Amount of data to return.</param>
+        /// <param name="readData">Contains the read data.</param>
+        /// <returns>An error code describing the result of the call.</returns>
+        public ErrorCode ReadDataFromStaticStorage(uint offset, uint size, out byte[] readData)
+        {
+            ErrorCode error;
+            (error, readData) = ReadDataFromStaticStorageAsyncInternal(offset, size, sync: true).GetAwaiter().GetResult();
+            return error;
+        }
+
+        /// <summary>
+        /// Reads data from the static storage.
+        /// </summary>
+        /// <param name="offset">Offset to start reading from.</param>
+        /// <param name="size">Amount of data to return.</param>
+        /// <returns>A tuple containing an error code describing the result of the call
+        /// and the read data.</returns>
+#if __DOXYGEN__
+        public ValueTuple<ErrorCode, byte[]> ReadDataFromStaticStorage(uint offset, uint size)
+#else
+        public (ErrorCode error, byte[] data) ReadDataFromStaticStorage(uint offset, uint size)
+#endif
+        {
+            return ReadDataFromStaticStorageAsyncInternal(offset, size, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Reads data from the static storage.
+        /// </summary>
+        /// <param name="offset">Offset to start reading from.</param>
+        /// <param name="size">Amount of data to return.</param>
+        /// <returns>A task representing the asynchronous operation containing 
+        /// an error code describing the result of the call
+        /// and the read data.</returns>
+        public Task<(ErrorCode error, byte[] data)> ReadDataFromStaticStorageAsync(uint offset, uint size)
+        {
+            return ReadDataFromStaticStorageAsyncInternal(offset, size, sync: false);
+        }
+
+        private async Task<(ErrorCode, byte[])> ReadDataFromStaticStorageAsyncInternal(uint offset, uint size, bool sync)
+        {
+            var retrieveExtendedDeviceInfoResult = sync ? RetrieveExtendedDeviceInfo() : await RetrieveExtendedDeviceInfoAsync();
+            if (retrieveExtendedDeviceInfoResult != ErrorCode.Success)
+            {
+                return (retrieveExtendedDeviceInfoResult, Array.Empty<byte>());
+            }
+
+            var readCapacityResult = sync ? ReadStaticStorageCapacityAndPageSize() : await ReadStaticStorageCapacityAndPageSizeAsync();
+            if (readCapacityResult.Item1 != ErrorCode.Success)
+            {
+                return (readCapacityResult.Item1, Array.Empty<byte>());
+            }
+
+            if (offset + size > _staticStorageCapacity)
+            {
+                return (ErrorCode.DeviceStaticStorageAddressSizeError, Array.Empty<byte>());
+            }
+
+            int maxReadSize = Math.Min(256, ExtendedInfo.BufferSize - 1);
+
+            var readData = new List<byte>();
+
+            while (size > 0)
+            {
+                int readSize = (int)Math.Min(size, maxReadSize);
+
+                BusRequest request = new BusRequest();
+                request.Write((byte)0);
+                request.Write((byte)CommandKey.ReadFromStaticStorage);
+                request.Write((uint)offset);
+                request.Write((ushort)readSize);
+
+                BusTransceiveResult result = sync ? Transceive(request, readSize + 1) : await TransceiveAsync(request, readSize + 1);
+
+                if (!result.Success)
+                {
+                    return (result.TransportError, Array.Empty<byte>());
+                }
+                else
+                {
+                    var errorCode = result.Response.ReadByte();
+                    if (errorCode == 1)
+                    {
+                        return (ErrorCode.DeviceStaticStorageAddressSizeError, Array.Empty<byte>());
+                    }
+                    else if (errorCode != 0)
+                    {
+                        return (ErrorCode.DeviceStaticStorageWriteError, Array.Empty<byte>());
+                    }
+
+                    var readDataPortion = result.Response.ReadBytes(readSize);
+
+                    for (int i = 0; i < readDataPortion.Length; ++i)
+                    {
+                        readData.Add(readDataPortion[i]);
+                    }
+
+                    offset += (uint)readSize;
+                    size -= (uint)readSize;
+                }
+            }
+
+            return (ErrorCode.Success, readData.ToArray());
+        }
+
+        /// <summary>
+        /// Writes a UTF8 encoded string the static storage, marking its end with a \0-character.
+        /// The string is always written to the beginning of the static storage.
+        /// If the supplied does not fit into the static storage it is truncated.
+        /// </summary>
+        /// <param name="data">The string to write.</param>
+        /// <returns>An error code describing the result of the call.</returns>
+        public ErrorCode WriteStringToStaticStorage(string data)
+        {
+            return WriteStringToStaticStorageAsyncInternal(data, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Writes a UTF8 encoded string the static storage, marking its end with a \0-character.
+        /// The string is always written to the beginning of the static storage.
+        /// If the supplied does not fit into the static storage it is truncated.
+        /// </summary>
+        /// <param name="data">The string to write.</param>
+        /// <returns>A task representing the asynchronous operation containing 
+        /// an error code describing the result of the call.</returns>
+        public Task<ErrorCode> WriteStringToStaticStorageAsync(string data)
+        {
+            return WriteStringToStaticStorageAsyncInternal(data, sync: false);
+        }
+
+        private async Task<ErrorCode> WriteStringToStaticStorageAsyncInternal(string data, bool sync)
+        {
+            var readCapacityResult = sync ? ReadStaticStorageCapacityAndPageSize() : await ReadStaticStorageCapacityAndPageSizeAsync();
+            if (readCapacityResult.Item1 != ErrorCode.Success)
+            {
+                return readCapacityResult.Item1;
+            }
+
+            int maxStringLength = _staticStorageCapacity - 1;
+
+            if (data.Length > maxStringLength)
+            {
+                data = data.Substring(0, maxStringLength);
+            }
+
+            var stringBuffer = new UTF8Encoding().GetBytes(data + "\0");
+
+            if (sync)
+            {
+                return WriteDataToStaticStorage(0, stringBuffer);
+            }
+            else
+            {
+                return await WriteDataToStaticStorageAsync(0, stringBuffer);
+            }
+        }
+
+        /// <summary>
+        /// Writes data to the static storage. Valid values of the address offset are limited to multiples of the page size.
+        /// If the supplied data is shorter than a multiple of the page size, the remaining data of the last 
+        /// should be assumed to be deleted. Call ReadStaticStorageCapacityAndPageSize() to determine the maximum data length
+        /// and the page size.
+        /// </summary>
+        /// <param name="offset">Offset to write the data to.</param>
+        /// <param name="data">Data to write.</param>
+        /// <returns>An error code describing the result of the call.</returns>
+        public ErrorCode WriteDataToStaticStorage(uint offset, byte[] data)
+        {
+            return WriteDataToStaticStorageAsyncInternal(offset, data, sync: true).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Writes data to the static storage. Valid values of the address offset are limited to multiples of the page size.
+        /// If the supplied data is shorter than a multiple of the page size, the remaining data of the last 
+        /// should be assumed to be deleted. Call ReadStaticStorageCapacityAndPageSizeAsync() to determine the maximum data length
+        /// and the page size.
+        /// </summary>
+        /// <param name="offset">Offset to write the data to.</param>
+        /// <param name="data">Data to write.</param>
+        /// <returns>A task representing the asynchronous operation containing 
+        /// an error code describing the result of the call.</returns>
+        public Task<ErrorCode> WriteDataToStaticStorageAsync(uint offset, byte[] data)
+        {
+            return WriteDataToStaticStorageAsyncInternal(offset, data, sync: false);
+        }
+
+        private async Task<ErrorCode> WriteDataToStaticStorageAsyncInternal(uint offset, byte[] data, bool sync)
+        {
+            var retrieveExtendedDeviceInfoResult = sync ? RetrieveExtendedDeviceInfo() : await RetrieveExtendedDeviceInfoAsync();
+            if (retrieveExtendedDeviceInfoResult != ErrorCode.Success)
+            {
+                return retrieveExtendedDeviceInfoResult;
+            }
+
+            var readCapacityResult = sync ? ReadStaticStorageCapacityAndPageSize() : await ReadStaticStorageCapacityAndPageSizeAsync();
+            if (readCapacityResult.Item1 != ErrorCode.Success)
+            {
+                return readCapacityResult.Item1;
+            }
+
+            // dont exceed capacity and offset must be at a page boundary
+            if (offset + data.Length > _staticStorageCapacity || (_staticStoragePageSize > 1 && offset % _staticStoragePageSize != 0))
+            {
+                return ErrorCode.DeviceStaticStorageAddressSizeError;
+            }
+
+            int maxWriteSize = ExtendedInfo.BufferSize - 6;
+
+            // writing data in multiple packets works only if we can write at least one whole page at a time.
+            if (maxWriteSize < _staticStoragePageSize && data.Length > maxWriteSize)
+            {
+                return ErrorCode.DeviceStaticStorageAddressSizeError;
+            }
+
+            int writeDataOffset = 0;
+            int dataToWrite = data.Length;
+
+
+            while (dataToWrite > 0)
+            {
+                int writeSize = (int)Math.Min(dataToWrite, _staticStoragePageSize);
+                byte[] writeBuffer = new byte[writeSize];
+                Array.Copy(data, writeDataOffset, writeBuffer, 0, writeSize);
+
+                BusRequest request = new BusRequest();
+                request.Write((byte)0);
+                request.Write((byte)CommandKey.WriteToStaticStorage);
+                request.Write((uint)offset);
+                request.Write(writeBuffer);
+
+                BusTransceiveResult result = sync ? Transceive(request, 1) : await TransceiveAsync(request, 1);
+
+                if (!result.Success)
+                {
+                    return result.TransportError;
+                }
+                else
+                {
+                    var errorCode = result.Response.ReadByte();
+                    if (errorCode == 1)
+                    {
+                        return ErrorCode.DeviceStaticStorageAddressSizeError;
+                    }
+                    else if (errorCode != 0)
+                    {
+                        return ErrorCode.DeviceStaticStorageWriteError;
+                    }
+
+                    offset += (uint)writeSize;
+                    writeDataOffset += writeSize;
+                    dataToWrite -= writeSize;
+                }
+            }
+
+            return ErrorCode.Success;
         }
 
         /// <summary>
