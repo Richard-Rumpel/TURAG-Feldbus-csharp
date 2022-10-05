@@ -499,7 +499,11 @@ namespace TURAG.Feldbus.Devices
         /// </summary>
         /// <returns>An error code describing the result of the call, the static storage capacity and
         /// its page size.</returns>
-        public (ErrorCode, int, int) ReadStaticStorageCapacityAndPageSize()
+#if __DOXYGEN__
+        public ValueTuple<ErrorCode error, int capacity, int pageSize> ReadStaticStorageCapacityAndPageSize()
+#else
+        public (ErrorCode error, int capacity, int pageSize) ReadStaticStorageCapacityAndPageSize()
+#endif
         {
             return ReadStaticStorageCapacityAndPageSizeAsyncInternal(sync: true).GetAwaiter().GetResult();
         }
@@ -513,7 +517,7 @@ namespace TURAG.Feldbus.Devices
         /// <returns>A task representing the asynchronous operation.
         /// Contains an error code describing the result of the call, the static storage capacity and
         /// its page size.</returns>
-        public Task<(ErrorCode, int, int)> ReadStaticStorageCapacityAndPageSizeAsync()
+        public Task<(ErrorCode error, int capacity, int pageSize)> ReadStaticStorageCapacityAndPageSizeAsync()
         {
             return ReadStaticStorageCapacityAndPageSizeAsyncInternal(sync: false);
         }
@@ -521,7 +525,7 @@ namespace TURAG.Feldbus.Devices
         int _staticStorageCapacity = -1;
         int _staticStoragePageSize = -1;
 
-        private async Task<(ErrorCode, int, int)> ReadStaticStorageCapacityAndPageSizeAsyncInternal(bool sync)
+        private async Task<(ErrorCode error, int capacity, int pageSize)> ReadStaticStorageCapacityAndPageSizeAsyncInternal(bool sync)
         {
             if (_staticStorageCapacity == -1)
             {

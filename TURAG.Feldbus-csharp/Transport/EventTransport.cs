@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 namespace TURAG.Feldbus.Transport
 {
     /// <summary>
-    /// This transport implementation deferrs the actual data exchange by providing
+    /// This transport implementation defers the actual data exchange by providing
     /// three pairs of request event and SetResult-function for transmit, transceive
     /// buffer clear. The user needs to register to each event and, within its invocation,
     /// execute the required transport mechanism and call the SetResult function to
