@@ -32,7 +32,8 @@ namespace TURAG.Feldbus.Devices
             public enum Access : byte
             {
                 ReadOnly = 0x00,
-                WriteAccess = 0x01
+                WriteAccess = 0x01,
+                ReadWriteAccess = 0x02
             };
 
             public enum Length : byte
@@ -624,7 +625,7 @@ namespace TURAG.Feldbus.Devices
                 Log.Logger?.Error("%s: key not supported", this);
                 return ErrorCode.StellantriebInvalidKey;
             }
-            if (command.AccessMode != Command.Access.WriteAccess)
+            if (command.AccessMode != Command.Access.WriteAccess && command.AccessMode != Command.Access.ReadWriteAccess)
             {
                 Log.Logger?.Error("key not writable", this);
                 return ErrorCode.StellantriebValueReadOnly;
@@ -693,7 +694,7 @@ namespace TURAG.Feldbus.Devices
                 Log.Logger?.Error("%s: key not supported", this);
                 return ErrorCode.StellantriebInvalidKey;
             }
-            if (command.AccessMode != Command.Access.WriteAccess)
+            if (command.AccessMode != Command.Access.WriteAccess && command.AccessMode != Command.Access.ReadWriteAccess)
             {
                 Log.Logger?.Error("key not writable", this);
                 return ErrorCode.StellantriebValueReadOnly;
